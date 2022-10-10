@@ -42,7 +42,8 @@ private:
 
 	//Time 
 	double refresh, refresh_prev;
-	bool testing;
+
+	Size _size;
 
 public:
 	void init(Size image_size);
@@ -57,5 +58,7 @@ public:
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
 
 	void update_settings(Mat &im);
+
+	bool testing;
 };
 

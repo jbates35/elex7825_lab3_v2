@@ -11,7 +11,7 @@ using namespace dnn;
 
 #define WHITE Scalar(255, 255, 255)
 #define RED Scalar(0, 0, 255)
-#define GREEN Scalar(0, 255, 255)
+#define GREEN Scalar(0, 255, 0)
 #define BLUE Scalar(255, 0, 0)
 #define YELLOW Scalar(0, 255, 255)
 #define MAGENTA Scalar(255, 0, 255)
@@ -27,7 +27,7 @@ private:
 	Size _image_size;
 	Mat _canvas;
 
-	vector<vector<Mat>> _simple_robot;
+	vector<tuple<vector<Mat>, Scalar>> _simple_robot;
 
 	CCamera _virtualcam;
 

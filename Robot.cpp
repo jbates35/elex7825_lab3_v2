@@ -84,22 +84,20 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 
 	_virtualcam.transform_to_image(box3d, box2d);
 
-	std::cout << box2d;
 
-	for (auto x : box2d) {
-		circle(_canvas, x, 3, RED, 2);
-	}
-	
 	for (int i = 0; i < 12; i++)
 	{
 		Point pt1 = box2d.at(draw_box1[i]);
 		Point pt2 = box2d.at(draw_box2[i]);
-
-		std::cout << "Line " << i << ": " << box2d.at(draw_box1[i]) << " to " << box2d.at(draw_box2[i]) << std::endl;
-
 		line(im, pt1, pt2, colour, 1);
 	}
-	
+
+	if (_virtualcam.testing) {
+		std::cout << box2d;
+		for (auto x : box2d) {
+			circle(_canvas, x, 1, RED, 2);
+		}
+	}
 }
 
 void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
@@ -118,18 +116,53 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 
 void CRobot::create_simple_robot()
 {
-	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
-	std::vector <Mat> box1 = createBox(1,1,1);
-	drawBox(_canvas, box1, cv::Scalar(255, 255, 125));
+	vector<vector<Mat>> boxes;
+	vector<Mat> box1 = createBox(0.05, 0.05, 0.05);
+	vector<Mat> box2 = createBox(0.05, 0.05, 0.05);
+
+	vector<Point2f> translate;
+	translate.push_back(Point2f(0, 0));
+	translate.push_back(Point2f(0, 0.05));
+	translate.push_back(Point2f(0.05, 0.1));
+	translate.push_back(Point2f(-0.05, 0.1));
+	translate.push_back(Point2f(0, 0.15));
+
+	vector<Scalar> colors;
+	colors.push_back(RED);
+	colors.push_back(RED);
+	colors.push_back(GREEN);
+	colors.push_back(BLUE);
+	colors.push_back(RED);
+
+	for (int i = 0; i < translate.size(); i++) {
+
+		Mat transform = (Mat1f(4, 4) <<
+			1, 0, 0, translate[i].x,
+			0, 1, 0, translate[i].y + 0.025,
+			0, 0, 1, 0,
+			0, 0, 0, 1
+			);
+
+		_simple_robot.push_back(std::tuple<vector<Mat>, Scalar>(createBox(0.05, 0.05, 0.05), colors[i]));
+		
+		transformPoints(std::get<0>(_simple_robot[i]), transform);
+	}
 }
 
 void CRobot::draw_simple_robot()
 {
-	std::vector<Mat> O = createCoord();
+
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
 	_virtualcam.update_settings(_canvas);
 
-	//UNCOMMENT
+	std::vector<Mat> O = createCoord();
+	drawCoord(_canvas, O);
+
+	for (auto x : _simple_robot) {
+		drawBox(_canvas, std::get <0>(x), std::get <1>(x));
+	}
+
 	cv::imshow(CANVAS_NAME, _canvas);
 }
