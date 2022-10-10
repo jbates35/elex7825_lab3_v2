@@ -116,11 +116,6 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 
 void CRobot::create_simple_robot()
 {
-
-	vector<vector<Mat>> boxes;
-	vector<Mat> box1 = createBox(0.05, 0.05, 0.05);
-	vector<Mat> box2 = createBox(0.05, 0.05, 0.05);
-
 	vector<Point2f> translate;
 	translate.push_back(Point2f(0, 0));
 	translate.push_back(Point2f(0, 0.05));
@@ -144,9 +139,9 @@ void CRobot::create_simple_robot()
 			0, 0, 0, 1
 			);
 
-		_simple_robot.push_back(std::tuple<vector<Mat>, Scalar>(createBox(0.05, 0.05, 0.05), colors[i]));
+		_simple_robot.push_back(tuple<vector<Mat>, Scalar>(createBox(0.05, 0.05, 0.05), colors[i]));
 		
-		transformPoints(std::get<0>(_simple_robot[i]), transform);
+		transformPoints(get<0>(_simple_robot[i]), transform);
 	}
 }
 
