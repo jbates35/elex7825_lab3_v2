@@ -9,6 +9,14 @@ using namespace std;
 using namespace cv;
 using namespace dnn;
 
+#define WHITE Scalar(255, 255, 255)
+#define RED Scalar(0, 0, 255)
+#define GREEN Scalar(0, 255, 255)
+#define BLUE Scalar(255, 0, 0)
+#define YELLOW Scalar(0, 255, 255)
+#define MAGENTA Scalar(255, 0, 255)
+#define TEAL Scalar(255, 255, 0)
+
 class CRobot
 {
 public:
@@ -24,6 +32,7 @@ private:
 	CCamera _virtualcam;
 
 	//CuArm uarm;
+
 
 	std::vector<Mat> createBox(float w, float h, float d);
 	std::vector<Mat> createCoord();

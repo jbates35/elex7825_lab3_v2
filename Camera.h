@@ -6,6 +6,10 @@ using namespace std;
 using namespace cv;
 using namespace dnn;
 
+#define REFRESH_INT 1
+
+#define PI 3.14159265359
+
 class CCamera
 {
 public:
@@ -35,6 +39,10 @@ private:
 	Mat _cam_real_intrinsic;
 	Mat _cam_real_extrinsic;
 	Mat _cam_real_dist_coeff;
+
+	//Time 
+	double refresh, refresh_prev;
+	bool testing;
 
 public:
 	void init(Size image_size);

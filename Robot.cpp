@@ -84,13 +84,22 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 
 	_virtualcam.transform_to_image(box3d, box2d);
 
+	std::cout << box2d;
+
+	for (auto x : box2d) {
+		circle(_canvas, x, 3, RED, 2);
+	}
+	
 	for (int i = 0; i < 12; i++)
 	{
 		Point pt1 = box2d.at(draw_box1[i]);
 		Point pt2 = box2d.at(draw_box2[i]);
 
+		std::cout << "Line " << i << ": " << box2d.at(draw_box1[i]) << " to " << box2d.at(draw_box2[i]) << std::endl;
+
 		line(im, pt1, pt2, colour, 1);
 	}
+	
 }
 
 void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
@@ -109,17 +118,18 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 
 void CRobot::create_simple_robot()
 {
-	drawBox(_canvas, <0,0,0>, )
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
+	std::vector <Mat> box1 = createBox(1,1,1);
+	drawBox(_canvas, box1, cv::Scalar(255, 255, 125));
 }
 
 void CRobot::draw_simple_robot()
 {
-	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
-
 	std::vector<Mat> O = createCoord();
 
 	_virtualcam.update_settings(_canvas);
 
+	//UNCOMMENT
 	cv::imshow(CANVAS_NAME, _canvas);
 }

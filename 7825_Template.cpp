@@ -35,6 +35,7 @@ void lab3(int cam_id)
   char exit_key = -1;
   CRobot robot;
 
+  
   robot.create_simple_robot();
 
   while (exit_key != 'q')

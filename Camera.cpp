@@ -26,10 +26,10 @@ void CCamera::init (Size image_size)
 
 	_cam_setting_x = 0; // units in mm
 	_cam_setting_y = 0; // units in mm
-	_cam_setting_z = 0; // units in mm
+	_cam_setting_z = -2; // units in mm
 
 	_cam_setting_roll = 0; // units in degrees
-	_cam_setting_pitch = 0; // units in degrees
+	_cam_setting_pitch = 60; // units in degrees
 	_cam_setting_yaw = 0; // units in degrees
 
 	//////////////////////////////////////
@@ -37,25 +37,65 @@ void CCamera::init (Size image_size)
 
 	_cam_setting_f = 3; // Units are mm, convert to m by dividing 1000
 
-	_pixel_size = 0.0000046; // Units of m
+	_pixel_size = 0.000046; // Units of m
 	_principal_point = Point2f(image_size / 2);
-	
+
 	calculate_intrinsic();
 
 	//////////////////////////////////////
 	// Virtual Camera Extrinsic
 
 	calculate_extrinsic();
+
+	//Tests
+	refresh = cv::getTickCount();
+	testing = true;
 }
 
 void CCamera::calculate_intrinsic()
 {
-	_cam_virtual_intrinsic = (Mat1f(3, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0);
+	Mat mult1 = (Mat1f(3, 3) << 1 / _pixel_size, 0, _principal_point.x, 0, 1 / _pixel_size, _principal_point.y, 0, 0, 1);
+	Mat mult2 = (Mat1f(3, 4) << (float) _cam_setting_f / 1000, 0, 0, 0, 0, (float) _cam_setting_f / 1000, 0, 0, 0, 0, 1, 0);
+
+	_cam_virtual_intrinsic = mult1 * mult2;
 }
 
 void CCamera::calculate_extrinsic()
 {
-	_cam_virtual_extrinsic = (Mat1f(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+	//_cam_setting_roll = 70;
+	//_cam_setting_pitch = 50;
+	//_cam_setting_yaw = 40;
+	//_cam_setting_x = 3;
+	//_cam_setting_y = 4;
+	//_cam_setting_z = 2;
+
+	//Calculate angles
+	float sx = sin((float) _cam_setting_roll * PI /180);
+	float cx = cos((float) _cam_setting_roll * PI / 180);
+	float sy = sin((float) _cam_setting_pitch * PI / 180);
+	float cy = cos((float) _cam_setting_pitch * PI / 180);
+	float sz = sin((float) _cam_setting_yaw * PI / 180);
+	float cz = cos((float) _cam_setting_yaw * PI / 180);
+
+	_cam_virtual_extrinsic = (Mat1f(4, 4) << 
+		cz*cy, cz*sy*sx-sz*cx, cz*sy*cx + sz*sx, _cam_setting_x, 
+		sz*cy, sz*sy*sx + cz*cx, sz*sy*cx-cz*sx, _cam_setting_y,
+		-1*sy, cy*sx, cy*cx, _cam_setting_z,
+		0, 0, 0, 1);
+
+	//if (testing) {
+	//	std::cout << "roll: " << _cam_setting_roll << "\n";
+	//	std::cout << "pitch: " << _cam_setting_pitch << "\n";
+	//	std::cout << "yaw: " << _cam_setting_yaw << "\n\n";
+
+	//	std::cout << "x: " << _cam_setting_x << "\n";
+	//	std::cout << "y: " << _cam_setting_y << "\n";
+	//	std::cout << "z: " << _cam_setting_z << "\n\n";
+
+	//	std::cout << "extrinsic ... \n" << _cam_virtual_extrinsic << "\n\n";
+	//	testing = false;
+	//}
+
 }
 
 bool CCamera::save_camparam(string filename, Mat& cam, Mat& dist)
@@ -274,10 +314,25 @@ void CCamera::calibrate_board(int cam_id)
 
 void CCamera::transform_to_image(Mat pt3d_mat, Point2f& pt)
 {
+	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic;
+	Mat pts = trans_factor * pt3d_mat;
+	//Divide x and y by z
+	pt = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), pts.at<float>(1) / pts.at<float>(2));
 }
 
 void CCamera::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {
+	pts2d.clear();
+
+	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic;
+
+	for (auto x : pts3d_mat) {
+		//Crush 3d to 2d
+		Mat pts = trans_factor * x;
+		//Divide x and y by z
+		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), pts.at<float>(1) / pts.at<float>(2));
+		pts2d.push_back(pt2d);
+	}
 }
 
 void CCamera::update_settings(Mat &im)
@@ -332,4 +387,12 @@ void CCamera::update_settings(Mat &im)
 
 	calculate_intrinsic();
 	calculate_extrinsic();
+
+	if (testing) {
+		if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT*3) {
+			refresh = cv::getTickCount();
+			std::cout << "Intrinsic cam: " << std::endl << _cam_virtual_intrinsic << std::endl; // delme
+			std::cout << "Extrinsic cam: " << std::endl << _cam_virtual_extrinsic << std::endl; //delme
+		}
+	}
 }
