@@ -116,28 +116,20 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 
 void CRobot::create_simple_robot()
 {
-	vector<Point2f> translate;
-	translate.push_back(Point2f(0, 0));
-	translate.push_back(Point2f(0, 0.05));
-	translate.push_back(Point2f(0.05, 0.1));
-	translate.push_back(Point2f(-0.05, 0.1));
-	translate.push_back(Point2f(0, 0.15));
+	vector<Point2f> translate = { Point2f(0, 0), Point2f(0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0, 0.15) };
+	vector<Scalar> colors = { RED, RED, GREEN, BLUE, RED };
 
-	vector<Scalar> colors;
-	colors.push_back(RED);
-	colors.push_back(RED);
-	colors.push_back(GREEN);
-	colors.push_back(BLUE);
-	colors.push_back(RED);
+	Mat transform = (Mat1f(4, 4) << 
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+		);
 
 	for (int i = 0; i < translate.size(); i++) {
 
-		Mat transform = (Mat1f(4, 4) <<
-			1, 0, 0, translate[i].x,
-			0, 1, 0, translate[i].y + 0.025,
-			0, 0, 1, 0,
-			0, 0, 0, 1
-			);
+		transform.at<float>(0, 3) = translate[i].x;
+		transform.at<float>(1, 3) = translate[i].y + 0.025;
 
 		_simple_robot.push_back(tuple<vector<Mat>, Scalar>(createBox(0.05, 0.05, 0.05), colors[i]));
 		
@@ -156,7 +148,7 @@ void CRobot::draw_simple_robot()
 	drawCoord(_canvas, O);
 
 	for (auto x : _simple_robot) {
-		drawBox(_canvas, std::get <0>(x), std::get <1>(x));
+		drawBox(_canvas, get <0>(x), get <1>(x));
 	}
 
 	cv::imshow(CANVAS_NAME, _canvas);
