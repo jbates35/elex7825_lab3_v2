@@ -128,12 +128,15 @@ void CRobot::create_simple_robot()
 
 	for (int i = 0; i < translate.size(); i++) {
 
+		box _box;
+		_box.shape = createBox(0.05, 0.05, 0.05);
+		_box.color = colors[i];
+
 		transform.at<float>(0, 3) = translate[i].x;
 		transform.at<float>(1, 3) = translate[i].y + 0.025;
+		transformPoints(_box.shape, transform);
 
-		_simple_robot.push_back(tuple<vector<Mat>, Scalar>(createBox(0.05, 0.05, 0.05), colors[i]));
-		
-		transformPoints(get<0>(_simple_robot[i]), transform);
+		_simple_robot.push_back(_box);
 	}
 }
 
@@ -148,7 +151,7 @@ void CRobot::draw_simple_robot()
 	drawCoord(_canvas, O);
 
 	for (auto x : _simple_robot) {
-		drawBox(_canvas, get <0>(x), get <1>(x));
+		drawBox(_canvas, x.shape, x.color);
 	}
 
 	cv::imshow(CANVAS_NAME, _canvas);

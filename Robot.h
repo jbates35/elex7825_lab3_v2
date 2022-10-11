@@ -27,7 +27,11 @@ private:
 	Size _image_size;
 	Mat _canvas;
 
-	vector<tuple<vector<Mat>, Scalar>> _simple_robot;
+	struct box {
+		vector<Mat> shape;
+		Scalar color;
+	};
+	vector<box> _simple_robot;
 
 	CCamera _virtualcam;
 
