@@ -114,9 +114,40 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 	line(im, O, Z, CV_RGB(0, 0, 255), 1); // Z=BLUE
 }
 
+void CRobot::detect_charuco(Mat& im, Mat& im_copy)
+{
+	cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+	cv::Ptr<cv::aruco::CharucoBoard> board = cv::aruco::CharucoBoard::create(5, 7, 0.04f, 0.02f, dictionary);
+	cv::Ptr<cv::aruco::DetectorParameters> params = cv::aruco::DetectorParameters::create();
+
+	params->cornerRefinementMethod = cv::aruco::CORNER_REFINE_NONE;
+
+	im.copyTo(im_copy);
+
+	std::vector<int> markerIds;
+	std::vector<std::vector<cv::Point2f> > markerCorners;
+
+	//cv::aruco::detectMarkers(image, board->getDictionary(), markerCorners, markerIds, params);
+
+	//or
+	cv::aruco::detectMarkers(im, dictionary, markerCorners, markerIds, params);
+
+	// if at least one marker detected
+	if (markerIds.size() > 0) {
+		cv::aruco::drawDetectedMarkers(im_copy, markerCorners, markerIds);
+		std::vector<cv::Point2f> charucoCorners;
+		std::vector<int> charucoIds;
+		cv::aruco::interpolateCornersCharuco(markerCorners, markerIds, im, board, charucoCorners, charucoIds);
+		// if at least one charuco corner detected
+		if (charucoIds.size() > 0)
+			cv::aruco::drawDetectedCornersCharuco(im_copy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
+	}
+
+}
+
 void CRobot::create_simple_robot()
 {
-	vector<Point2f> translate = { Point2f(0, 0), Point2f(0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0, 0.15) };
+	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0.0, 0.15) };
 	vector<Scalar> colors = { RED, RED, GREEN, BLUE, RED };
 
 	Mat transform = (Mat1f(4, 4) << 
@@ -155,4 +186,18 @@ void CRobot::draw_simple_robot()
 	}
 
 	cv::imshow(CANVAS_NAME, _canvas);
+}
+
+void CRobot::create_more_complex_robot()
+{
+	_canvas = imread(FILEPATH, IMREAD_COLOR);
+}
+
+void CRobot::draw_more_complex_robot()
+{
+	_canvas = imread(FILEPATH, IMREAD_COLOR);
+	detect_charuco(_canvas, _canvas_copy);
+
+	cv::imshow(CANVAS_NAME, _canvas);
+	cv::imshow("Copy of canvas", _canvas_copy);
 }

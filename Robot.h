@@ -17,6 +17,8 @@ using namespace dnn;
 #define MAGENTA Scalar(255, 0, 255)
 #define TEAL Scalar(255, 255, 0)
 
+#define FILEPATH "C:\\Users\\jbate\\OneDrive\\Documents\\aruco_pics\\1.jpg"
+
 class CRobot
 {
 public:
@@ -26,6 +28,7 @@ public:
 private:
 	Size _image_size;
 	Mat _canvas;
+	Mat _canvas_copy;
 
 	struct box {
 		vector<Mat> shape;
@@ -34,6 +37,10 @@ private:
 	vector<box> _simple_robot;
 
 	CCamera _virtualcam;
+
+	VideoCapture input_video;
+	Mat test_img;
+
 
 	//CuArm uarm;
 
@@ -46,6 +53,8 @@ private:
 	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour);
 	void drawCoord(Mat& im, std::vector<Mat> coord3d);
 
+	void detect_charuco(Mat& im, Mat& im_copy);
+
 public:
 	Mat createHT(Vec3d t, Vec3d r);
 
@@ -57,6 +66,8 @@ public:
 
 	/////////////////////////////
 	// Lab 4
+	void create_more_complex_robot();
+	void draw_more_complex_robot();
 
 	/////////////////////////////
   // Lab 5
