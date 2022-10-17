@@ -112,8 +112,8 @@ bool CCamera::load_camparam(string filename, Mat& cam, Mat& dist)
 void CCamera::createChArUcoBoard()
 {
 	Mat im;
-	float size_square = 0.04; // user specified
-	float size_mark = 0.02; // user specified
+	float size_square = 0.06; // user specified
+	float size_mark = 0.03; // user specified
 	Size board_size = Size(5, 7);
 	int dictionary_id = aruco::DICT_6X6_250;
 
@@ -136,8 +136,8 @@ void CCamera::calibrate_board(int cam_id)
 	Size board_size = Size(5, 7);
 	int dictionary_id = aruco::DICT_6X6_250;
   
-	float size_aruco_square = 0; // MEASURE THESE
-	float size_aruco_mark = 0; // MEASURE THESE
+	float size_aruco_square = (float) 17/1000; // MEASURE THESE
+	float size_aruco_mark = (float) 8.5/1000; // MEASURE THESE
 
 	Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
 	Ptr<aruco::Dictionary> dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
@@ -146,7 +146,7 @@ void CCamera::calibrate_board(int cam_id)
 	Ptr<aruco::Board> board = charucoboard.staticCast<aruco::Board>();
 
 	VideoCapture inputVideo;
-	inputVideo.open(cam_id);
+	inputVideo.open(cam_id, CAP_DSHOW);
 
 	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
 	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
@@ -291,6 +291,10 @@ void CCamera::calibrate_board(int cam_id)
 			char key = (char)waitKey(0);
 			if (key == 27) break;
 	}
+}
+
+void CCamera::detect_aruco(Mat& im, Mat& im_cpy, int cam_id)
+{
 }
 
 void CCamera::transform_to_image(Mat pt3d_mat, Point2f& pt)

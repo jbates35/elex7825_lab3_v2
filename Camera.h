@@ -53,6 +53,7 @@ public:
 
 	void createChArUcoBoard();
 	void calibrate_board(int cam_id);
+	void detect_aruco(Mat& im, Mat& im_cpy,  int cam_id);
 
 	void transform_to_image(Mat pt3d_mat, Point2f& pt);
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
