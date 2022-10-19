@@ -50,7 +50,7 @@ void lab4(int cam_id)
    char exit_key = -1;
    CRobot robot;
    
-   robot.create_more_complex_robot();
+   robot.create_simple_robot();
 
    while (exit_key != 'q') {
       robot.draw_more_complex_robot();

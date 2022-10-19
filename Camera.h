@@ -67,8 +67,11 @@ private:
 	cv::Mat cameraMatrix, distCoeffs;
 	cv::Vec3d rvec, tvec;
 
-	bool pose_seen; // false on initialize, true once pose has been seen
+	//Getting new point
+	Point2f _board_pose_2d;
+	Mat _new_pt_3d, _intrinsic_cam;
 
+	bool pose_seen; // false on initialize, true once pose has been seen
 
 public:
 	void init(Size image_size, int cam_id=0);
@@ -83,7 +86,13 @@ public:
 	void transform_to_image(Mat pt3d_mat, Point2f& pt);
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
 
+	void transform_to_image_real(Mat pt3d_mat, Point2f& pt);
+	void transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
+
 	void update_settings(Mat &im);
+
+	bool get_pose_seen() { return pose_seen; }
+
 
 	bool testing;
 

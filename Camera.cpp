@@ -70,6 +70,7 @@ void CCamera::init (Size image_size, int cam_id)
 	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
 
 	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
+	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
 
 	pose_seen = false;
 
@@ -366,7 +367,33 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 		}
 
 		if (pose_seen) {
+
+			//Draw frame axis on corner of grid
 			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
+
+			//Calculate actual points on grid for origin
+			Mat focus_mat = Mat((Mat1f(3, 4) <<
+				1.0, 0.0, 0.0, 0.0,
+				0.0, 1.0, 0.0, 0.0,
+				0.0, 0.0, 1.0, 0.0
+				));
+
+			Mat board_mat = Mat((Mat1f(4, 1) << tvec[0], tvec[1], tvec[2], 1));
+			_new_pt_3d = _cam_real_intrinsic * focus_mat * board_mat;
+			_board_pose_2d = Point2f(_new_pt_3d.at<float>(0) / _new_pt_3d.at<float>(2), _new_pt_3d.at<float>(1) / _new_pt_3d.at<float>(2));
+
+
+			//transform_to_image(board_mat, board_pose_2d);
+			
+
+			if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT * 3) {
+
+				refresh = cv::getTickCount();
+
+				std::cout << "Unadulterated point is ... \n" << _new_pt_3d << "\n\n";
+				std::cout << "POSED Point is ... \n x: " << _board_pose_2d.x << "\ny: " << _board_pose_2d.y << "\n\n";
+
+			}
 		}
 	}
 }
@@ -384,6 +411,56 @@ void CCamera::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f
 	pts2d.clear();
 
 	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic.inv();
+
+	for (auto x : pts3d_mat) {
+		//Crush 3d to 2d
+		Mat pts = trans_factor * x;
+		//Divide x and y by z
+		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
+		pts2d.push_back(pt2d);
+	}
+}
+
+void CCamera::transform_to_image_real(Mat pt3d_mat, Point2f& pt)
+{
+
+	Mat extrinsic = Mat((Mat1f(4, 4) << 
+		1,0,0, tvec[0], 
+		0,1,0, tvec[1], 
+		0,0,1, tvec[2], 
+		0,0,0,	1
+		));
+
+	Mat focus_mat = Mat((Mat1f(3, 4) <<
+		1,0,0,0,
+		0,1,0,0,
+		0,0,1,0
+		));
+
+	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic;
+
+	Mat pts = trans_factor * pt3d_mat;
+	//Divide x and y by z
+	pt = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
+}
+
+void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
+{
+
+	Mat extrinsic = Mat((Mat1f(4, 4) <<
+		1, 0, 0, tvec[0],
+		0, 1, 0, tvec[1],
+		0, 0, 1, tvec[2],
+		0, 0, 0, 1
+		));
+
+	Mat focus_mat = Mat((Mat1f(3, 4) <<
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0
+		));
+
+	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic.inv();
 
 	for (auto x : pts3d_mat) {
 		//Crush 3d to 2d

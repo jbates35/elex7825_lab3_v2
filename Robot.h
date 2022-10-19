@@ -42,7 +42,7 @@ private:
 	VideoCapture input_video;
 	Mat test_img;
 
-	double test_timer;
+	double test_timer, turn_timer;
 
 	//CuArm uarm;
 
@@ -52,7 +52,7 @@ private:
 
 	void transformPoints(std::vector<Mat>& points, Mat T);
 	
-	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour);
+	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab=3);
 	void drawCoord(Mat& im, std::vector<Mat> coord3d);
 
 	vector<Point2f> rotate_robot(vector<Point3f>);

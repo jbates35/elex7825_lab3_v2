@@ -78,7 +78,7 @@ void CRobot::transformPoints(std::vector<Mat>& points, Mat T)
 	}
 }
 
-void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
+void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab)
 {
 	std::vector<Point2f> box2d;
 
@@ -86,8 +86,11 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	float draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
 	float draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
-	_virtualcam.transform_to_image(box3d, box2d);
-
+	if (lab == 3) {
+		_virtualcam.transform_to_image(box3d, box2d);
+	} else {
+		_virtualcam.transform_to_image_real(box3d, box2d);
+	}
 
 	for (int i = 0; i < 12; i++)
 	{
@@ -125,7 +128,7 @@ vector<Point2f> CRobot::rotate_robot(vector<Point3f>)
 
 void CRobot::create_simple_robot()
 {
-	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0.0, 0.15) };
+	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05/2), Point2f(0.05/2, 0.1/2), Point2f(-0.05/2, 0.1/2), Point2f(0.0, 0.15/2) };
 	vector<Scalar> colors = { RED, RED, GREEN, BLUE, RED };
 
 	Mat transform = (Mat1f(4, 4) << 
@@ -138,14 +141,13 @@ void CRobot::create_simple_robot()
 	for (int i = 0; i < translate.size(); i++) {
 
 		box _box;
-		_box.shape = createBox(0.05, 0.05, 0.05);
+		_box.shape = createBox(0.05/2, 0.05/2, 0.05/2);
 		_box.color = colors[i];
 		//_box.pos = ...
 
 		transform.at<float>(0, 3) = translate[i].x;
-		transform.at<float>(1, 3) = translate[i].y + 0.025;
+		transform.at<float>(1, 3) = translate[i].y + 0.025/2;
 		transformPoints(_box.shape, transform);
-
 		_simple_robot.push_back(_box);
 	}
 }
@@ -167,27 +169,45 @@ void CRobot::draw_simple_robot()
 	cv::imshow(CANVAS_NAME, _canvas);
 }
 
-void CRobot::create_more_complex_robot()
-{
-	//_canvas = imread(FILEPATH, IMREAD_COLOR);
-}
 
 void CRobot::draw_more_complex_robot()
 {
 	_virtualcam.detect_aruco(_canvas, _canvas_copy);
 	_virtualcam.update_settings(_canvas_copy);
 
-	//Get 2d position of board
-	Point2f board_pose_2d;
-	cv::Vec3d board_pose = _virtualcam.get_tvec();
-	Mat board_mat = Mat((Mat1f(4,1) << board_pose[0], board_pose[1], board_pose[2], 1));
-	_virtualcam.transform_to_image(board_mat, board_pose_2d);
+	//Move robot
+	Vec3d tvec = _virtualcam.get_tvec();
 
-	circle(_canvas_copy, board_pose_2d, 4, Scalar(255, 0, 255), 2);
+	for (auto x : _simple_robot) {
+		if(_virtualcam.get_pose_seen())
+			drawBox(_canvas_copy, x.shape, x.color, 4);
+	}
 
+	if ((getTickCount() - turn_timer) / getTickFrequency() >= 0.01) {
+		turn_timer = getTickCount();
 
-		//box.push_back(Mat((Mat1f(4, 1) << -w / 2, h / 2, -d / 2, 1)));
+		int roll = 0;
+		int pitch = 4;
+		int yaw = 0;
 
+		//Calculate angles
+		float sx = sin((float)roll * PI / 180);
+		float cx = cos((float)roll * PI / 180);
+		float sy = sin((float)pitch * PI / 180);
+		float cy = cos((float)pitch * PI / 180);
+		float sz = sin((float)yaw * PI / 180);
+		float cz = cos((float)yaw * PI / 180);
+
+		Mat T = (Mat1f(4, 4) <<
+			cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+			sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+			-1 * sy, cy * sx, cy * cx, 0,
+			0, 0, 0, 1);
+
+		for (auto x : _simple_robot)
+			transformPoints(x.shape, T);
+	}
 	//cv::imshow("7825 Canvas (test1)", _canvas);
 	cv::imshow("7825 Canvas Lab 4", _canvas_copy);
+
 }
