@@ -19,8 +19,7 @@ CRobot::CRobot()
 	cv::namedWindow(CANVAS_NAME);
 	cvui::init(CANVAS_NAME);
 	
-
-
+	test_timer = cv::getTickCount();
 
   ///////////////////////////////////////////////
 	// uArm setup
@@ -175,14 +174,20 @@ void CRobot::create_more_complex_robot()
 
 void CRobot::draw_more_complex_robot()
 {
-	_virtualcam.detect_aruco(_canvas, _canvas_copy, 0);
+	_virtualcam.detect_aruco(_canvas, _canvas_copy);
+	_virtualcam.update_settings(_canvas_copy);
 
-	//_canvas = imread(FILEPATH, IMREAD_COLOR);
-	//_virtualcam.createChArUcoBoard();
-	//_virtualcam.calibrate_board(0);
+	//Get 2d position of board
+	Point2f board_pose_2d;
+	cv::Vec3d board_pose = _virtualcam.get_tvec();
+	Mat board_mat = Mat((Mat1f(4,1) << board_pose[0], board_pose[1], board_pose[2], 1));
+	_virtualcam.transform_to_image(board_mat, board_pose_2d);
 
-	//detect_charuco(_canvas, _canvas_copy);
+	circle(_canvas_copy, board_pose_2d, 4, Scalar(255, 0, 255), 2);
 
-	cv::imshow(CANVAS_NAME, _canvas);
-	cv::imshow("Copy of canvas", _canvas_copy);
+
+		//box.push_back(Mat((Mat1f(4, 1) << -w / 2, h / 2, -d / 2, 1)));
+
+	//cv::imshow("7825 Canvas (test1)", _canvas);
+	cv::imshow("7825 Canvas Lab 4", _canvas_copy);
 }

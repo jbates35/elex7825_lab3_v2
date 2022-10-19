@@ -54,7 +54,7 @@ void lab4(int cam_id)
 
    while (exit_key != 'q') {
       robot.draw_more_complex_robot();
-      exit_key = waitKey(10);   
+      exit_key = waitKey(5);   
    }
 }
 
