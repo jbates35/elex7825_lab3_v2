@@ -347,13 +347,8 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 
 		// estimate charuco board pose
 		bool validPose = false;
-		if (_cam_real_intrinsic.total() != 0) {
+		if (_cam_real_intrinsic.total() != 0) 
 			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
-			aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, _rotate, _translate);
-
-			std::cout << "Rotate ... \n\n" << _rotate << "\n\n";
-			std::cout << "Translate ... \n\n" << _translate << "\n\n";
-		}
 
 		if (charucoIds.size() > 0)
 			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
@@ -370,35 +365,11 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 			_cam_setting_z = tvec[2] * 1000;
 		}
 
-		if (pose_seen) {
-
+		if (pose_seen)
 			//Draw frame axis on corner of grid
 			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
 
-			//Calculate actual points on grid for origin
-			Mat focus_mat = Mat((Mat1f(3, 4) <<
-				1.0, 0.0, 0.0, 0.0,
-				0.0, 1.0, 0.0, 0.0,
-				0.0, 0.0, 1.0, 0.0
-				));
-
-			Mat board_mat = Mat((Mat1f(4, 1) << tvec[0], tvec[1], tvec[2], 1));
-			_new_pt_3d = _cam_real_intrinsic * focus_mat * board_mat;
-			_board_pose_2d = Point2f(_new_pt_3d.at<float>(0) / _new_pt_3d.at<float>(2), _new_pt_3d.at<float>(1) / _new_pt_3d.at<float>(2));
-
-
-			//transform_to_image(board_mat, board_pose_2d);
-			
-
-			if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT * 3) {
-
-				refresh = cv::getTickCount();
-
-				std::cout << "Unadulterated point is ... \n" << _new_pt_3d << "\n\n";
-				std::cout << "POSED Point is ... \n x: " << _board_pose_2d.x << "\ny: " << _board_pose_2d.y << "\n\n";
-
-			}
-		}
+	
 	}
 }
 
@@ -452,9 +423,7 @@ void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Po
 {
 
 	Mat _R_mat3, _R_matrix, _R_matrix_inv;
-
 	_R_mat3 = (Mat1f(3, 1) << (float) rvec[0], (float) rvec[1], (float) rvec[2]);
-
 	Rodrigues(_R_mat3, _R_matrix_inv);                   // converts Rotation Vector to Matrix
 
 	_R_matrix = _R_matrix_inv.inv();
@@ -507,6 +476,8 @@ void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Po
 		pts2d.push_back(pt2d);
 	}
 }
+
+//Project Points look up
 
 void CCamera::update_settings(Mat &im)
 {
