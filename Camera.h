@@ -60,6 +60,8 @@ private:
 	Ptr<aruco::CharucoBoard> charucoboard;
 	Ptr<aruco::Board> board;
 
+	Mat _rotate, _translate;
+
 	VideoCapture inputVideo;
 
 	//Calibration

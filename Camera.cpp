@@ -347,9 +347,13 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 
 		// estimate charuco board pose
 		bool validPose = false;
-		if (_cam_real_intrinsic.total() != 0)
-			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard,
-				_cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
+		if (_cam_real_intrinsic.total() != 0) {
+			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
+			aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, _rotate, _translate);
+
+			std::cout << "Rotate ... \n\n" << _rotate << "\n\n";
+			std::cout << "Translate ... \n\n" << _translate << "\n\n";
+		}
 
 		if (charucoIds.size() > 0)
 			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
@@ -447,6 +451,21 @@ void CCamera::transform_to_image_real(Mat pt3d_mat, Point2f& pt)
 void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {
 
+	Mat _R_mat3, _R_matrix, _R_matrix_inv;
+
+	_R_mat3 = (Mat1f(3, 1) << (float) rvec[0], (float) rvec[1], (float) rvec[2]);
+
+	Rodrigues(_R_mat3, _R_matrix_inv);                   // converts Rotation Vector to Matrix
+
+	_R_matrix = _R_matrix_inv.inv();
+
+	Mat rotation = Mat((Mat1f(4, 4) <<
+		_R_matrix.at<float>(0,0), _R_matrix.at<float>(0, 1), _R_matrix.at<float>(0, 2), 0,
+		_R_matrix.at<float>(1, 0), _R_matrix.at<float>(1, 1), _R_matrix.at<float>(1, 2), 0,
+		_R_matrix.at<float>(2, 0), _R_matrix.at<float>(2, 1), _R_matrix.at<float>(2, 2), 0,
+		0, 0, 0, 1
+		));
+
 	Mat extrinsic = Mat((Mat1f(4, 4) <<
 		1, 0, 0, tvec[0],
 		0, 1, 0, tvec[1],
@@ -460,11 +479,29 @@ void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Po
 		0, 0, 1, 0
 		));
 
-	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic.inv();
+	int roll = -90;
+	int pitch = 0;
+	int yaw = 0;
+
+	//Calculate angles
+	float sx = sin((float)roll * PI / 180);
+	float cx = cos((float)roll * PI / 180);
+	float sy = sin((float)pitch * PI / 180);
+	float cy = cos((float)pitch * PI / 180);
+	float sz = sin((float)yaw * PI / 180);
+	float cz = cos((float)yaw * PI / 180);
+
+	Mat T = (Mat1f(4, 4) <<
+		cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+		-1 * sy, cy * sx, cy * cx, 0,
+		0, 0, 0, 1);
+
+	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic.inv() * rotation.inv() * T;
 
 	for (auto x : pts3d_mat) {
 		//Crush 3d to 2d
-		Mat pts = trans_factor * x;
+		Mat pts = (trans_factor * x);
 		//Divide x and y by z
 		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
 		pts2d.push_back(pt2d);
