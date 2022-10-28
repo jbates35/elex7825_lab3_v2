@@ -1,6 +1,10 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/aruco/charuco.hpp>
+#include <cmath>
+#include "cvui.h"
+
 
 using namespace std;
 using namespace cv;
@@ -45,20 +49,54 @@ private:
 
 	Size _size;
 
+	//For detecting charuco and creating such
+	Size board_size;
+	int dictionary_id;
+	float size_aruco_square, size_aruco_mark;
+
+	Ptr<aruco::DetectorParameters> detectorParams;
+	Ptr<aruco::Dictionary> dictionary;
+
+	Ptr<aruco::CharucoBoard> charucoboard;
+	Ptr<aruco::Board> board;
+
+	VideoCapture inputVideo;
+
+	//Calibration
+	std::string filename;
+	cv::Mat cameraMatrix, distCoeffs;
+	cv::Vec3d rvec, tvec;
+
+	//Getting new point
+	Point2f _board_pose_2d;
+	Mat _new_pt_3d, _intrinsic_cam;
+
+	bool pose_seen; // false on initialize, true once pose has been seen
+
 public:
-	void init(Size image_size);
+	void init(Size image_size, int cam_id=0);
 
 	bool save_camparam(string filename, Mat& cam, Mat& dist);
 	bool load_camparam(string filename, Mat& cam, Mat& dist);
 
 	void createChArUcoBoard();
-	void calibrate_board(int cam_id);
+	void calibrate_board();
+	void detect_aruco(Mat& im, Mat& im_cpy);
 
 	void transform_to_image(Mat pt3d_mat, Point2f& pt);
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
 
+	void transform_to_image_real(Mat pt3d_mat, Point2f& pt);
+	void transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
+
 	void update_settings(Mat &im);
 
+	bool get_pose_seen() { return pose_seen; }
+
+
 	bool testing;
+
+	cv::Vec3d get_rvec() { return rvec; }
+	cv::Vec3d get_tvec() { return tvec; }
 };
 

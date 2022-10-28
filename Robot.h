@@ -35,6 +35,7 @@ private:
 	struct box {
 		vector<Mat> shape;
 		Scalar color;
+		//Point2f pos;
 	};
 	vector<box> _simple_robot;
 
@@ -52,6 +53,7 @@ private:
 	VideoCapture input_video;
 	Mat test_img;
 
+	double test_timer, turn_timer;
 
 	//CuArm uarm;
 
@@ -61,10 +63,8 @@ private:
 
 	void transformPoints(std::vector<Mat>& points, Mat T);
 	
-	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour);
+	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab=3);
 	void drawCoord(Mat& im, std::vector<Mat> coord3d);
-
-	void detect_charuco(Mat& im, Mat& im_copy);
 		
 	////////////////////////////////////
 	// LAB 5
@@ -78,8 +78,8 @@ private:
 	vector<int> _joint;
 	Mat _world_view;
 	vector<int> _joint_min, _joint_max;
-
-
+	vector<Point2f> rotate_robot(vector<Point3f>);
+  
 public:
 	Mat createHT(Vec3d t, Vec3d r);
 

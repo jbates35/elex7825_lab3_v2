@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include <opencv2/aruco/charuco.hpp>
+//#include <opencv2/aruco/aruco_calib_pose.hpp>
 
 #include "cvui.h"
 
@@ -11,11 +12,14 @@ CRobot::CRobot()
 {
 	//////////////////////////////////////
 	// Create image and window for drawing
+	
 	_image_size = Size(1000, 600);
 
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3);
 	cv::namedWindow(CANVAS_NAME);
 	cvui::init(CANVAS_NAME);
+	
+	test_timer = cv::getTickCount();
 
   ///////////////////////////////////////////////
 	// uArm setup
@@ -163,7 +167,7 @@ void CRobot::transformPoints(std::vector<Mat>& points, Mat T)
 	}
 }
 
-void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
+void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab)
 {
 	std::vector<Point2f> box2d;
 
@@ -171,8 +175,11 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	float draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
 	float draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
-	_virtualcam.transform_to_image(box3d, box2d);
-
+	if (lab == 3) {
+		_virtualcam.transform_to_image(box3d, box2d);
+	} else {
+		_virtualcam.transform_to_image_real(box3d, box2d);
+	}
 
 	for (int i = 0; i < 12; i++)
 	{
@@ -203,40 +210,14 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 	line(im, O, Z, CV_RGB(0, 0, 255), 1); // Z=BLUE
 }
 
-void CRobot::detect_charuco(Mat& im, Mat& im_copy)
+vector<Point2f> CRobot::rotate_robot(vector<Point3f>)
 {
-	cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-	cv::Ptr<cv::aruco::CharucoBoard> board = cv::aruco::CharucoBoard::create(5, 7, 0.04f, 0.02f, dictionary);
-	cv::Ptr<cv::aruco::DetectorParameters> params = cv::aruco::DetectorParameters::create();
-
-	params->cornerRefinementMethod = cv::aruco::CORNER_REFINE_NONE;
-
-	im.copyTo(im_copy);
-
-	std::vector<int> markerIds;
-	std::vector<std::vector<cv::Point2f> > markerCorners;
-
-	//cv::aruco::detectMarkers(image, board->getDictionary(), markerCorners, markerIds, params);
-
-	//or
-	cv::aruco::detectMarkers(im, dictionary, markerCorners, markerIds, params);
-
-	// if at least one marker detected
-	if (markerIds.size() > 0) {
-		cv::aruco::drawDetectedMarkers(im_copy, markerCorners, markerIds);
-		std::vector<cv::Point2f> charucoCorners;
-		std::vector<int> charucoIds;
-		cv::aruco::interpolateCornersCharuco(markerCorners, markerIds, im, board, charucoCorners, charucoIds);
-		// if at least one charuco corner detected
-		if (charucoIds.size() > 0)
-			cv::aruco::drawDetectedCornersCharuco(im_copy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
-	}
-
+	return vector<Point2f>();
 }
 
 void CRobot::create_simple_robot()
 {
-	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0.0, 0.15) };
+	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05/2), Point2f(0.05/2, 0.1/2), Point2f(-0.05/2, 0.1/2), Point2f(0.0, 0.15/2) };
 	vector<Scalar> colors = { RED, RED, GREEN, BLUE, RED };
 
 	Mat transform = (Mat1f(4, 4) <<
@@ -249,13 +230,13 @@ void CRobot::create_simple_robot()
 	for (int i = 0; i < translate.size(); i++) {
 
 		box _box;
-		_box.shape = createBox(0.05, 0.05, 0.05);
+		_box.shape = createBox(0.05/2, 0.05/2, 0.05/2);
 		_box.color = colors[i];
+		//_box.pos = ...
 
 		transform.at<float>(0, 3) = translate[i].x;
-		transform.at<float>(1, 3) = translate[i].y + 0.025;
+		transform.at<float>(1, 3) = translate[i].y + 0.025/2;
 		transformPoints(_box.shape, transform);
-
 		_simple_robot.push_back(_box);
 	}
 }
@@ -277,18 +258,47 @@ void CRobot::draw_simple_robot()
 	cv::imshow(CANVAS_NAME, _canvas);
 }
 
-void CRobot::create_more_complex_robot()
-{
-	_canvas = imread(FILEPATH, IMREAD_COLOR);
-}
 
 void CRobot::draw_more_complex_robot()
 {
-	_canvas = imread(FILEPATH, IMREAD_COLOR);
-	detect_charuco(_canvas, _canvas_copy);
+	_virtualcam.detect_aruco(_canvas, _canvas_copy);
+	_virtualcam.update_settings(_canvas_copy);
 
-	cv::imshow(CANVAS_NAME, _canvas);
-	cv::imshow("Copy of canvas", _canvas_copy);
+	//Move robot
+	Vec3d tvec = _virtualcam.get_tvec();
+
+	for (auto x : _simple_robot) {
+		if(_virtualcam.get_pose_seen())
+			drawBox(_canvas_copy, x.shape, x.color, 4);
+	}
+
+	if ((getTickCount() - turn_timer) / getTickFrequency() >= 0.01) {
+		turn_timer = getTickCount();
+
+		int roll = 0;
+		int pitch = 4;
+		int yaw = 0;
+
+		//Calculate angles
+		float sx = sin((float)roll * PI / 180);
+		float cx = cos((float)roll * PI / 180);
+		float sy = sin((float)pitch * PI / 180);
+		float cy = cos((float)pitch * PI / 180);
+		float sz = sin((float)yaw * PI / 180);
+		float cz = cos((float)yaw * PI / 180);
+
+		Mat T = (Mat1f(4, 4) <<
+			cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+			sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+			-1 * sy, cy * sx, cy * cx, 0,
+			0, 0, 0, 1);
+
+		for (auto x : _simple_robot)
+			transformPoints(x.shape, T);
+	}
+	//cv::imshow("7825 Canvas (test1)", _canvas);
+	cv::imshow("7825 Canvas Lab 4", _canvas_copy);
+
 }
 
 

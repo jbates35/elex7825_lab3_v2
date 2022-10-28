@@ -1,11 +1,6 @@
 #include "stdafx.h"
 
 #include "Camera.h"
-#include <cmath>
-
-#include <opencv2/aruco/charuco.hpp>
-
-#include "cvui.h"
 
 CCamera::CCamera()
 {
@@ -17,7 +12,7 @@ CCamera::~CCamera()
 {
 }
 
-void CCamera::init (Size image_size)
+void CCamera::init (Size image_size, int cam_id)
 {
 	//////////////////////////////////////
 	// CVUI interface default variables
@@ -52,6 +47,35 @@ void CCamera::init (Size image_size)
 	//Tests
 	refresh = cv::getTickCount();
 	testing = false;
+
+
+	// Board settings
+	board_size = Size(5, 7);
+	dictionary_id = aruco::DICT_6X6_250;
+
+	size_aruco_square = (float)17 / 1000; // MEASURE THESE
+	size_aruco_mark = (float)8.5 / 1000; // MEASURE THESE
+
+	detectorParams = aruco::DetectorParameters::create();
+	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
+
+	charucoboard = aruco::CharucoBoard::create(board_size.width, board_size.height, size_aruco_square, size_aruco_mark, dictionary);
+	board = charucoboard.staticCast<aruco::Board>();
+
+	inputVideo.open(cam_id, CAP_DSHOW);
+
+	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+
+	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
+
+	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
+	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
+
+	pose_seen = false;
+
+	if(testing)
+		std::cout << "Camera matrix is... \n" << _cam_real_intrinsic << "\n\nDist Coefficients Matrix is...\n" << _cam_real_dist_coeff << "\n\n";
 }
 
 void CCamera::calculate_intrinsic()
@@ -112,8 +136,8 @@ bool CCamera::load_camparam(string filename, Mat& cam, Mat& dist)
 void CCamera::createChArUcoBoard()
 {
 	Mat im;
-	float size_square = 0.04; // user specified
-	float size_mark = 0.02; // user specified
+	float size_square = 0.06; // user specified
+	float size_mark = 0.03; // user specified
 	Size board_size = Size(5, 7);
 	int dictionary_id = aruco::DICT_6X6_250;
 
@@ -124,7 +148,7 @@ void CCamera::createChArUcoBoard()
 	imwrite("ChArUcoBoard.png", im);
 }
 
-void CCamera::calibrate_board(int cam_id)
+void CCamera::calibrate_board()
 {
 	// Calib data
 	vector<vector<vector<Point2f>>> calib_corner;
@@ -136,8 +160,8 @@ void CCamera::calibrate_board(int cam_id)
 	Size board_size = Size(5, 7);
 	int dictionary_id = aruco::DICT_6X6_250;
   
-	float size_aruco_square = 0; // MEASURE THESE
-	float size_aruco_mark = 0; // MEASURE THESE
+	float size_aruco_square = (float) 17/1000; // MEASURE THESE
+	float size_aruco_mark = (float) 8.5/1000; // MEASURE THESE
 
 	Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
 	Ptr<aruco::Dictionary> dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
@@ -146,7 +170,6 @@ void CCamera::calibrate_board(int cam_id)
 	Ptr<aruco::Board> board = charucoboard.staticCast<aruco::Board>();
 
 	VideoCapture inputVideo;
-	inputVideo.open(cam_id);
 
 	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
 	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
@@ -293,28 +316,168 @@ void CCamera::calibrate_board(int cam_id)
 	}
 }
 
+void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
+{
+	if (inputVideo.grab()) {
+
+		std::vector<cv::Point2f> charucoCorners;
+		std::vector<int> charucoIds;
+
+		// Get image
+		inputVideo.retrieve(im);
+		im.copyTo(im_cpy);
+		
+		vector< int > markerIds;
+		vector< vector< Point2f > > markerCorners, rejectedMarkers;
+
+		// detect markers
+		aruco::detectMarkers(im, dictionary, markerCorners, markerIds, detectorParams,
+			rejectedMarkers);
+
+		// refind strategy to detect more markers
+		aruco::refineDetectedMarkers(im, board, markerCorners, markerIds, rejectedMarkers,
+			_cam_real_intrinsic, _cam_real_dist_coeff);
+
+		// interpolate charuco corners
+		int interpolatedCorners = 0;
+		if (markerIds.size() > 0)
+			interpolatedCorners =
+			aruco::interpolateCornersCharuco(markerCorners, markerIds, im, charucoboard,
+				charucoCorners, charucoIds, _cam_real_intrinsic, _cam_real_dist_coeff);
+
+		// estimate charuco board pose
+		bool validPose = false;
+		if (_cam_real_intrinsic.total() != 0) 
+			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
+
+		if (charucoIds.size() > 0)
+			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
+
+		if (charucoCorners.size() > 0)
+			aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds);
+
+		if (validPose) {
+			pose_seen = true;
+			
+			//Dump values into trackbars
+			_cam_setting_x = tvec[0] * 1000;
+			_cam_setting_y = tvec[1] * 1000;
+			_cam_setting_z = tvec[2] * 1000;
+		}
+
+		if (pose_seen)
+			//Draw frame axis on corner of grid
+			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
+
+	
+	}
+}
+
 void CCamera::transform_to_image(Mat pt3d_mat, Point2f& pt)
 {
-	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic;
+	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic.inv();
 	Mat pts = trans_factor * pt3d_mat;
 	//Divide x and y by z
-	pt = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), _size.height - (pts.at<float>(1) / pts.at<float>(2)));
+	pt = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
 }
 
 void CCamera::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {
 	pts2d.clear();
 
-	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic;
+	Mat trans_factor = _cam_virtual_intrinsic * _cam_virtual_extrinsic.inv();
 
 	for (auto x : pts3d_mat) {
 		//Crush 3d to 2d
 		Mat pts = trans_factor * x;
 		//Divide x and y by z
-		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), _size.height - (pts.at<float>(1) / pts.at<float>(2)));
+		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
 		pts2d.push_back(pt2d);
 	}
 }
+
+void CCamera::transform_to_image_real(Mat pt3d_mat, Point2f& pt)
+{
+
+	Mat extrinsic = Mat((Mat1f(4, 4) << 
+		1,0,0, tvec[0], 
+		0,1,0, tvec[1], 
+		0,0,1, tvec[2], 
+		0,0,0,	1
+		));
+
+	Mat focus_mat = Mat((Mat1f(3, 4) <<
+		1,0,0,0,
+		0,1,0,0,
+		0,0,1,0
+		));
+
+	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic;
+
+	Mat pts = trans_factor * pt3d_mat;
+	//Divide x and y by z
+	pt = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
+}
+
+void CCamera::transform_to_image_real(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
+{
+
+	Mat _R_mat3, _R_matrix, _R_matrix_inv;
+	_R_mat3 = (Mat1f(3, 1) << (float) rvec[0], (float) rvec[1], (float) rvec[2]);
+	Rodrigues(_R_mat3, _R_matrix_inv);                   // converts Rotation Vector to Matrix
+
+	_R_matrix = _R_matrix_inv.inv();
+
+	Mat rotation = Mat((Mat1f(4, 4) <<
+		_R_matrix.at<float>(0,0), _R_matrix.at<float>(0, 1), _R_matrix.at<float>(0, 2), 0,
+		_R_matrix.at<float>(1, 0), _R_matrix.at<float>(1, 1), _R_matrix.at<float>(1, 2), 0,
+		_R_matrix.at<float>(2, 0), _R_matrix.at<float>(2, 1), _R_matrix.at<float>(2, 2), 0,
+		0, 0, 0, 1
+		));
+
+	Mat extrinsic = Mat((Mat1f(4, 4) <<
+		1, 0, 0, tvec[0],
+		0, 1, 0, tvec[1],
+		0, 0, 1, tvec[2],
+		0, 0, 0, 1
+		));
+
+	Mat focus_mat = Mat((Mat1f(3, 4) <<
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0
+		));
+
+	int roll = -90;
+	int pitch = 0;
+	int yaw = 0;
+
+	//Calculate angles
+	float sx = sin((float)roll * PI / 180);
+	float cx = cos((float)roll * PI / 180);
+	float sy = sin((float)pitch * PI / 180);
+	float cy = cos((float)pitch * PI / 180);
+	float sz = sin((float)yaw * PI / 180);
+	float cz = cos((float)yaw * PI / 180);
+
+	Mat T = (Mat1f(4, 4) <<
+		cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+		-1 * sy, cy * sx, cy * cx, 0,
+		0, 0, 0, 1);
+
+	Mat trans_factor = _cam_real_intrinsic * focus_mat * extrinsic.inv() * rotation.inv() * T;
+
+	for (auto x : pts3d_mat) {
+		//Crush 3d to 2d
+		Mat pts = (trans_factor * x);
+		//Divide x and y by z
+		Point2f pt2d = cv::Point2f(pts.at<float>(0) / pts.at<float>(2), (pts.at<float>(1) / pts.at<float>(2)));
+		pts2d.push_back(pt2d);
+	}
+}
+
+//Project Points look up
 
 void CCamera::update_settings(Mat &im)
 {
