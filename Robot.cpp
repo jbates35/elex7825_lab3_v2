@@ -95,108 +95,38 @@ void CRobot::update_settings(Mat& im)
 		init();
 	}
 
-	//CAN CONDENSE THISvvvvvvvvvvvvvvvv
-
-	
+	//Animate
 	if (_do_animate != 0) {
 		int step_size = 5;
-		if (_do_animate == 1)
-		{
-			switch (_stage) {
-			case 0: // cw to -180
-				_joint[0] -= step_size;
-				if (_joint[0] <= _joint_min[0]) _stage = 1;
-				break;
-			case 1: // ccw to 180
-				_joint[0] += step_size;
-				if (_joint[0] >= _joint_max[0]) _stage = 2;
-				break;
-			case 2: // cw to 0
-				_joint[0] -= step_size;
-				if (_joint[0] <= (_joint_max[0] + _joint_min[0])/2) _stage = 3;
-				break;
-			case 3: // move on
-				_do_animate++; 
-				_stage = 0;
-				_joint[0] = (_joint_max[0] + _joint_min[0]) / 2;
-				break;
-			default:
-				init();
-			}
+		int i = _do_animate - 1;
+
+		switch (_stage) {
+		case 0: // cw to -180
+			_joint[i] -= step_size;
+			if (_joint[i] <= _joint_min[i]) _stage = 1;
+			break;
+		case 1: // ccw to 180
+			_joint[i] += step_size;
+			if (_joint[i] >= _joint_max[i]) _stage = 2;
+			break;
+		case 2: // cw to 0
+			_joint[i] -= step_size;
+			if (_joint[i] <= (_joint_max[i] + _joint_min[i]) / 2) _stage = 3;
+			break;
+		case 3: // move on
+			_joint[i] = (_joint_max[i] + _joint_min[i]) / 2;
+			_stage = 0;
+			_do_animate++;
+			break;
+		default:
+			init();
 		}
-		else if (_do_animate == 2)
-		{
-			// state 2
-			switch (_stage) {
-			case 0: // cw to -180
-				_joint[1] -= step_size;
-				if (_joint[1] <= _joint_min[1]) _stage = 1;
-				break;
-			case 1: // ccw to 180
-				_joint[1] += step_size;
-				if (_joint[1] >= _joint_max[1]) _stage = 2;
-				break;
-			case 2: // cw to 0
-				_joint[1] -= step_size;
-				if (_joint[1] <= (_joint_max[1] + _joint_min[1]) / 2) _stage = 3;
-				break;
-			case 3: // move on
-				_do_animate++;
-				_stage = 0;
-				_joint[1] = (_joint_max[1] + _joint_min[1]) / 2;
-				break;
-			default:
-				init();
-			}
-		}
-		else if (_do_animate == 3) {
-			switch (_stage) {
-			case 0: // cw to -180
-				_joint[2] -= step_size;
-				if (_joint[2] <= _joint_min[2]) _stage = 1;
-				break;
-			case 1: // ccw to 180
-				_joint[2] += step_size;
-				if (_joint[2] >= _joint_max[2]) _stage = 2;
-				break;
-			case 2: // cw to 0
-				_joint[2] -= step_size;
-				if (_joint[2] <= (_joint_max[2] + _joint_min[2]) / 2) _stage = 3;
-				break;
-			case 3: // move on
-				_do_animate++;
-				_stage = 0;
-				_joint[2] = (_joint_max[2] + _joint_min[2]) / 2;
-				break;
-			default:
-				init();
-			}
-		}
-		else if (_do_animate == 4) {
-			switch (_stage) {
-			case 0: // cw to -180
-				_joint[3] -= step_size;
-				if (_joint[3] <= _joint_min[3]) _stage = 1;
-				break;
-			case 1: // ccw to 180
-				_joint[3] += step_size;
-				if (_joint[3] >= _joint_max[3]) _stage = 2;
-				break;
-			case 2: // cw to 0
-				_joint[3] -= step_size;
-				if (_joint[3] <= (_joint_max[3] + _joint_min[3]) / 2) _stage = 3;
-				break;
-			case 3: // move on
-				_do_animate = 0;
-				_stage = 0;
-				_joint[3] = (_joint_max[3] + _joint_min[3]) / 2;;
-				break;
-			default:
-				init();
-			}
+
+		if (_do_animate == 5) {
+			_do_animate = 0;
+			init();
 		}
 	}
-
 	cvui::update();
 }
 
