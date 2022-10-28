@@ -65,26 +65,13 @@ void CRobot::update_settings(Mat& im)
 	_setting_window.x += 5;
 	_setting_window.y += 25;
 	
-	if (_do_animate > 0) {
-		for (int i = 0; i < _joint.size(); i++) {
+	for (int i = 0; i < _joint.size(); i++) {
 			cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], _joint_min[i], _joint_max[i]);
 			cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
 
 			_setting_window.y += 45;
-		}
-	} else {
-		//MIGHT BE BUGGY
-		_joint_disabled = _joint;
-
-		for (int i = 0; i < _joint.size(); i++) {
-
-			cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint_disabled[i], _joint_min[i], _joint_max[i]);
-			cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
-
-			_setting_window.y += 45;
-		}
 	}
-	
+
 	if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "Animate"))	{
 		init();
 		_do_animate = 1;
@@ -411,9 +398,13 @@ void CRobot::draw_lab5()
 
 	//TODO **************************************************************
 	Mat derotate_world = extrinsic();
-	Mat derotate_robot = extrinsic();
+	Mat derotate_robot = extrinsic(0, 0, 90) * extrinsic(0, 0, 90) * _lab5_robot[1].rotate * _lab5_robot[2].rotate * extrinsic(0, 0, 90) * _lab5_robot[3].rotate;
 
-	current_view = current_view * effector_translate * derotate_world * derotate_robot;
+	current_view = current_view * effector_translate * derotate_world * derotate_robot.inv();
+	
+	//FLIP
+	current_view *= extrinsic(0, 0, 180);
+
 	std::vector<Mat> O = createCoord();
 	transformPoints(O, current_view);
 	drawCoord(_canvas_copy, O);
