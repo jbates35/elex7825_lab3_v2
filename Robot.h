@@ -42,8 +42,7 @@ private:
 		vector<Mat> shape;
 		Scalar color;
 		Mat transpose;
-		Mat rotate_pre;
-		Mat rotate_post;
+		Mat rotate;
 	};
 	vector<box_l5> _lab5_robot;
 
@@ -78,6 +77,7 @@ private:
 	//Joint angles
 	vector<int> _joint;
 	Mat _world_view;
+	vector<int> _joint_min, _joint_max;
 
 
 public:

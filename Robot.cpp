@@ -24,10 +24,15 @@ CRobot::CRobot()
 	//uarm.init_robot();
 
 	for (int i = 0; i < 4; i++) _joint.push_back(0);
+	_joint[3] = 75;
 
 	init();
 
 	_world_view = extrinsic();
+
+	//Boundaries of joint angles or distances (4th entry)
+	_joint_min = { -180, -180, -180, -25 };
+	_joint_max = { 180, 180, 180, 175 };
 
 }
 
@@ -52,7 +57,7 @@ void CRobot::update_settings(Mat& im)
 	_setting_window.y += 20;
 
 	for (int i = 0; i < _joint.size(); i++) {
-		cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], -180, 180);
+		cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], _joint_min[i], _joint_max[i]);
 		cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
 
 		_setting_window.y += 45;
@@ -294,32 +299,21 @@ void CRobot::fkine()
 void CRobot::create_lab5()
 {
 	_lab5_robot.clear();
-
-	box_l5 _box; // delme
 	vector<Scalar> colors = { WHITE, RED, GREEN, BLUE };
-
 
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
 		extrinsic(0, 0, 90, 0, 0, 0),
 		extrinsic(0, 0, -90, 0.175, 0, 0, false),
 		extrinsic(0, 0, 0, 0.15, 0, 0, false),
-		extrinsic(0, 0, -90, 0.15, 0.075, 0, false)
+		extrinsic(0, 0, -90, 0.15, (float)_joint[3] / 1000, 0, false)
 	};
 
-	vector<Mat> rotate_box_1 = {
+	vector<Mat> rotate_box = {
 		extrinsic(),
 		extrinsic(0,_joint[0]),
 		extrinsic(0,_joint[1]),
-		extrinsic()
-	};
-
-	//probably don't need this
-	vector<Mat> rotate_box_2 = {
-		extrinsic(),
-		extrinsic(),
-		extrinsic(),
-		extrinsic()
+		extrinsic(_joint[2])
 	};
 
 	Mat current_view = extrinsic();
@@ -330,8 +324,7 @@ void CRobot::create_lab5()
 		_box.shape = createBox(0.15, 0.05, 0.05);
 		_box.color = colors[i];
 		_box.transpose = transpose_box[i];
-		_box.rotate_pre = rotate_box_1[i];
-		_box.rotate_post = rotate_box_2[i];
+		_box.rotate = rotate_box[i];
 
 		transformPoints(_box.shape, extrinsic(0, 0, 0, 0.075));
 
@@ -351,18 +344,33 @@ void CRobot::draw_lab5()
 
 	for (auto x : _lab5_robot) {
 
-		current_view = current_view * x.transpose * x.rotate_pre;
+		//Change origin
+		current_view = current_view * x.transpose * x.rotate;
+
+		//Transform box
 		transformPoints(x.shape, current_view);
-
 		
-		//Draw worldview
-		
+		//Create worldview
+		std::vector<Mat> O = createCoord();
+		transformPoints(O, current_view);
 
-
+		//Draw box + worldview
+		drawCoord(_canvas, O);
 		drawBox(_canvas, x.shape, x.color);
-
-		current_view *= x.rotate_post;
 	}
+
+	//Draw last worldview (end effector)
+	//(float)_joint[3] / 1000
+	Mat effector_translate = extrinsic(0, 0, 0, 0.15, 0, 0, false);
+
+	//TODO **************************************************************
+	Mat derotate_world = extrinsic();
+	Mat derotate_robot = extrinsic();
+
+	current_view = current_view * effector_translate * derotate_world * derotate_robot;
+	std::vector<Mat> O = createCoord();
+	transformPoints(O, current_view);
+	drawCoord(_canvas, O);
 
 	cv::imshow(CANVAS_NAME, _canvas);
 }
