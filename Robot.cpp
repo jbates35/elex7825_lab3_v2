@@ -298,24 +298,26 @@ void CRobot::create_lab5()
 	box_l5 _box; // delme
 	vector<Scalar> colors = { WHITE, RED, GREEN, BLUE };
 
+
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
-		extrinsic(0, 0, 90, 0.075, 0, 0),
-		extrinsic(0, 0, -90, 0.1, -0.075, 0, false),
+		extrinsic(0, 0, 90, 0, 0, 0),
+		extrinsic(0, 0, -90, 0.175, 0, 0, false),
 		extrinsic(0, 0, 0, 0.15, 0, 0, false),
-		extrinsic(0, 0, -90, 0.075, 0, 0, false)
+		extrinsic(0, 0, -90, 0.15, 0.075, 0, false)
 	};
 
 	vector<Mat> rotate_box_1 = {
 		extrinsic(),
-		extrinsic(_joint[0]),
-		extrinsic(),
+		extrinsic(0,_joint[0]),
+		extrinsic(0,_joint[1]),
 		extrinsic()
 	};
 
+	//probably don't need this
 	vector<Mat> rotate_box_2 = {
 		extrinsic(),
-		extrinsic(_joint[1]),
+		extrinsic(),
 		extrinsic(),
 		extrinsic()
 	};
@@ -330,6 +332,8 @@ void CRobot::create_lab5()
 		_box.transpose = transpose_box[i];
 		_box.rotate_pre = rotate_box_1[i];
 		_box.rotate_post = rotate_box_2[i];
+
+		transformPoints(_box.shape, extrinsic(0, 0, 0, 0.075));
 
 		_lab5_robot.push_back(_box);
 	}	
@@ -347,7 +351,7 @@ void CRobot::draw_lab5()
 
 	for (auto x : _lab5_robot) {
 
-		current_view = current_view* x.rotate_pre* x.transpose;
+		current_view = current_view * x.transpose * x.rotate_pre;
 		transformPoints(x.shape, current_view);
 
 		
