@@ -22,10 +22,94 @@ CRobot::CRobot()
 
 	//uarm.init_com("COM4");
 	//uarm.init_robot();
+
+	for (int i = 0; i < 4; i++) _joint.push_back(0);
+
+	init();
+
+	_world_view = extrinsic();
+
 }
 
 CRobot::~CRobot()
 {
+}
+
+void CRobot::init()
+{
+	// reset variables
+	_do_animate = 0;
+}
+
+void CRobot::update_settings(Mat& im)
+{
+	Point _setting_window;
+
+	_setting_window.x = im.size().width - 200;
+	cvui::window(im, _setting_window.x, _setting_window.y, 200, 450, "Robot Settings");
+
+	_setting_window.x += 5;
+	_setting_window.y += 20;
+
+	for (int i = 0; i < _joint.size(); i++) {
+		cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], -180, 180);
+		cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
+
+		_setting_window.y += 45;
+	}
+
+	if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "Animate"))
+	{
+		init();
+		_do_animate = 1;
+	}
+
+	if (_do_animate != 0)
+	{
+		int step_size = 5;
+		if (_do_animate == 1)
+		{
+			// state 1
+			if (1) { _do_animate = 2; }
+		}
+		else if (_do_animate == 2)
+		{
+			// state 2
+			if (1) { _do_animate = 3; }
+		}
+		else if (_do_animate == 3) {
+			if (1) { _do_animate = 0; init(); }
+		}
+	}
+
+	cvui::update();
+}
+
+cv::Mat CRobot::extrinsic(int roll, int pitch, int yaw, float x, float y, float z, bool normal)
+{
+	//Calculate angles
+	float sx = sin((float)roll * PI / 180);
+	float cx = cos((float)roll * PI / 180);
+	float sy = sin((float)pitch * PI / 180);
+	float cy = cos((float)pitch * PI / 180);
+	float sz = sin((float)yaw * PI / 180);
+	float cz = cos((float)yaw * PI / 180);
+
+	Mat rotate = (Mat1f(4, 4) <<
+		cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+		-1 * sy, cy * sx, cy * cx, 0,
+		0, 0, 0, 1);
+
+	Mat translate = (Mat1f(4, 4) <<
+		1, 0, 0, x,
+		0, 1, 0, y,
+		0, 0, 1, z,
+		0, 0, 0, 1
+		);
+
+	if (normal) return rotate * translate;
+	else return translate * rotate;
 }
 
 // Create Homogeneous Transformation Matrix
@@ -150,7 +234,7 @@ void CRobot::create_simple_robot()
 	vector<Point2f> translate = { Point2f(0.0, 0.0), Point2f(0.0, 0.05), Point2f(0.05, 0.1), Point2f(-0.05, 0.1), Point2f(0.0, 0.15) };
 	vector<Scalar> colors = { RED, RED, GREEN, BLUE, RED };
 
-	Mat transform = (Mat1f(4, 4) << 
+	Mat transform = (Mat1f(4, 4) <<
 		1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
@@ -200,4 +284,81 @@ void CRobot::draw_more_complex_robot()
 
 	cv::imshow(CANVAS_NAME, _canvas);
 	cv::imshow("Copy of canvas", _canvas_copy);
+}
+
+
+void CRobot::fkine()
+{
+}
+
+void CRobot::create_lab5()
+{
+	_lab5_robot.clear();
+
+	box_l5 _box; // delme
+	vector<Scalar> colors = { WHITE, RED, GREEN, BLUE };
+
+	// roll pitch yaw x y z
+	vector<Mat> transpose_box = {
+		extrinsic(0, 0, 90, 0.075, 0, 0),
+		extrinsic(0, 0, -90, 0.1, -0.075, 0, false),
+		extrinsic(0, 0, 0, 0.15, 0, 0, false),
+		extrinsic(0, 0, -90, 0.075, 0, 0, false)
+	};
+
+	vector<Mat> rotate_box_1 = {
+		extrinsic(),
+		extrinsic(_joint[0]),
+		extrinsic(),
+		extrinsic()
+	};
+
+	vector<Mat> rotate_box_2 = {
+		extrinsic(),
+		extrinsic(_joint[1]),
+		extrinsic(),
+		extrinsic()
+	};
+
+	Mat current_view = extrinsic();
+
+	for (int i = 0; i < colors.size(); i++) {
+
+		box_l5 _box;
+		_box.shape = createBox(0.15, 0.05, 0.05);
+		_box.color = colors[i];
+		_box.transpose = transpose_box[i];
+		_box.rotate_pre = rotate_box_1[i];
+		_box.rotate_post = rotate_box_2[i];
+
+		_lab5_robot.push_back(_box);
+	}	
+}
+
+
+void CRobot::draw_lab5()
+{
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+
+	_virtualcam.update_settings(_canvas);
+	update_settings(_canvas);
+
+	Mat current_view = extrinsic();
+
+	for (auto x : _lab5_robot) {
+
+		current_view = current_view* x.rotate_pre* x.transpose;
+		transformPoints(x.shape, current_view);
+
+		
+		//Draw worldview
+		
+
+
+		drawBox(_canvas, x.shape, x.color);
+
+		current_view *= x.rotate_post;
+	}
+
+	cv::imshow(CANVAS_NAME, _canvas);
 }
