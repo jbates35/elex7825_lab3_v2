@@ -29,13 +29,24 @@ private:
 	Size _image_size;
 	Mat _canvas;
 	Mat _canvas_copy;
+	void init();
 
+	//Lab 3 version
 	struct box {
 		vector<Mat> shape;
 		Scalar color;
 		//Point2f pos;
 	};
 	vector<box> _simple_robot;
+
+	struct box_l5 {
+		vector<Mat> shape;
+		Scalar color;
+		Mat transpose;
+		Mat rotate;
+	};
+	vector<box_l5> _lab5_robot;
+
 
 	CCamera _virtualcam;
 
@@ -54,9 +65,21 @@ private:
 	
 	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab=3);
 	void drawCoord(Mat& im, std::vector<Mat> coord3d);
+		
+	////////////////////////////////////
+	// LAB 5
 
+	int _do_animate; // Animation state machine
+
+	void update_settings(Mat& im);
+	cv::Mat extrinsic(int roll = 0, int pitch = 0, int yaw = 0, float x = 0, float y = 0, float z = 0, bool normal = true);
+	
+	//Joint angles
+	vector<int> _joint;
+	Mat _world_view;
+	vector<int> _joint_min, _joint_max;
 	vector<Point2f> rotate_robot(vector<Point3f>);
-
+  
 public:
 	Mat createHT(Vec3d t, Vec3d r);
 
@@ -71,8 +94,11 @@ public:
 	void create_more_complex_robot();
 	void draw_more_complex_robot();
 
-	/////////////////////////////
-  // Lab 5
 
+	/////////////////////////////
+	// Lab 5	
+	void fkine(); // Input joint variables, output end effector pose
+	void create_lab5();
+	void draw_lab5(); 
 };
 

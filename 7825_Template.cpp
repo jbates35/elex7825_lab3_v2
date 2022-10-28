@@ -60,7 +60,17 @@ void lab4(int cam_id)
 
 void lab5(int cam_id)
 {
-  
+    char exit_key = -1;
+    CRobot robot;
+
+
+    while (exit_key != 'q')
+    {
+        robot.create_lab5();
+        robot.draw_lab5 ();
+
+        exit_key = waitKey(100);
+    }
 }
 
 void lab6(int cam_id)
