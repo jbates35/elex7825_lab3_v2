@@ -69,7 +69,7 @@ void lab5(int cam_id)
         robot.create_lab5();
         robot.draw_lab5 ();
 
-        exit_key = waitKey(100);
+        exit_key = waitKey(10);
     }
 }
 

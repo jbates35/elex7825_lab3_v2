@@ -75,10 +75,11 @@ private:
 	cv::Mat extrinsic(int roll = 0, int pitch = 0, int yaw = 0, float x = 0, float y = 0, float z = 0, bool normal = true);
 	
 	//Joint angles
-	vector<int> _joint;
+	vector<int> _joint, _joint_disabled;
 	Mat _world_view;
 	vector<int> _joint_min, _joint_max;
 	vector<Point2f> rotate_robot(vector<Point3f>);
+	int _stage, _count;
   
 public:
 	Mat createHT(Vec3d t, Vec3d r);

@@ -27,9 +27,6 @@ CRobot::CRobot()
 	//uarm.init_com("COM4");
 	//uarm.init_robot();
 
-	for (int i = 0; i < 4; i++) _joint.push_back(0);
-	_joint[3] = 75;
-
 	init();
 
 	_world_view = extrinsic();
@@ -48,6 +45,14 @@ void CRobot::init()
 {
 	// reset variables
 	_do_animate = 0;
+
+	_joint.clear();
+	for (int i = 0; i < 4; i++) _joint.push_back(0);
+	_joint[3] = 75;
+
+	_stage = 0;
+	_count = 0;
+
 }
 
 void CRobot::update_settings(Mat& im)
@@ -58,36 +63,137 @@ void CRobot::update_settings(Mat& im)
 	cvui::window(im, _setting_window.x, _setting_window.y, 200, 450, "Robot Settings");
 
 	_setting_window.x += 5;
-	_setting_window.y += 20;
+	_setting_window.y += 25;
+	
+	if (_do_animate > 0) {
+		for (int i = 0; i < _joint.size(); i++) {
+			cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], _joint_min[i], _joint_max[i]);
+			cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
 
-	for (int i = 0; i < _joint.size(); i++) {
-		cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[i], _joint_min[i], _joint_max[i]);
-		cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
+			_setting_window.y += 45;
+		}
+	} else {
+		//MIGHT BE BUGGY
+		_joint_disabled = _joint;
 
-		_setting_window.y += 45;
+		for (int i = 0; i < _joint.size(); i++) {
+
+			cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint_disabled[i], _joint_min[i], _joint_max[i]);
+			cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "J" + to_string(i));
+
+			_setting_window.y += 45;
+		}
 	}
-
-	if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "Animate"))
-	{
+	
+	if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "Animate"))	{
 		init();
 		_do_animate = 1;
+		_stage = 0;
 	}
 
-	if (_do_animate != 0)
-	{
+	if (cvui::button(im, _setting_window.x+110, _setting_window.y, 100, 30, "reset")) {
+		init();
+	}
+
+	//CAN CONDENSE THISvvvvvvvvvvvvvvvv
+
+	
+	if (_do_animate != 0) {
 		int step_size = 5;
 		if (_do_animate == 1)
 		{
-			// state 1
-			if (1) { _do_animate = 2; }
+			switch (_stage) {
+			case 0: // cw to -180
+				_joint[0] -= step_size;
+				if (_joint[0] <= _joint_min[0]) _stage = 1;
+				break;
+			case 1: // ccw to 180
+				_joint[0] += step_size;
+				if (_joint[0] >= _joint_max[0]) _stage = 2;
+				break;
+			case 2: // cw to 0
+				_joint[0] -= step_size;
+				if (_joint[0] <= (_joint_max[0] + _joint_min[0])/2) _stage = 3;
+				break;
+			case 3: // move on
+				_do_animate++; 
+				_stage = 0;
+				_joint[0] = (_joint_max[0] + _joint_min[0]) / 2;
+				break;
+			default:
+				init();
+			}
 		}
 		else if (_do_animate == 2)
 		{
 			// state 2
-			if (1) { _do_animate = 3; }
+			switch (_stage) {
+			case 0: // cw to -180
+				_joint[1] -= step_size;
+				if (_joint[1] <= _joint_min[1]) _stage = 1;
+				break;
+			case 1: // ccw to 180
+				_joint[1] += step_size;
+				if (_joint[1] >= _joint_max[1]) _stage = 2;
+				break;
+			case 2: // cw to 0
+				_joint[1] -= step_size;
+				if (_joint[1] <= (_joint_max[1] + _joint_min[1]) / 2) _stage = 3;
+				break;
+			case 3: // move on
+				_do_animate++;
+				_stage = 0;
+				_joint[1] = (_joint_max[1] + _joint_min[1]) / 2;
+				break;
+			default:
+				init();
+			}
 		}
 		else if (_do_animate == 3) {
-			if (1) { _do_animate = 0; init(); }
+			switch (_stage) {
+			case 0: // cw to -180
+				_joint[2] -= step_size;
+				if (_joint[2] <= _joint_min[2]) _stage = 1;
+				break;
+			case 1: // ccw to 180
+				_joint[2] += step_size;
+				if (_joint[2] >= _joint_max[2]) _stage = 2;
+				break;
+			case 2: // cw to 0
+				_joint[2] -= step_size;
+				if (_joint[2] <= (_joint_max[2] + _joint_min[2]) / 2) _stage = 3;
+				break;
+			case 3: // move on
+				_do_animate++;
+				_stage = 0;
+				_joint[2] = (_joint_max[2] + _joint_min[2]) / 2;
+				break;
+			default:
+				init();
+			}
+		}
+		else if (_do_animate == 4) {
+			switch (_stage) {
+			case 0: // cw to -180
+				_joint[3] -= step_size;
+				if (_joint[3] <= _joint_min[3]) _stage = 1;
+				break;
+			case 1: // ccw to 180
+				_joint[3] += step_size;
+				if (_joint[3] >= _joint_max[3]) _stage = 2;
+				break;
+			case 2: // cw to 0
+				_joint[3] -= step_size;
+				if (_joint[3] <= (_joint_max[3] + _joint_min[3]) / 2) _stage = 3;
+				break;
+			case 3: // move on
+				_do_animate = 0;
+				_stage = 0;
+				_joint[3] = (_joint_max[3] + _joint_min[3]) / 2;;
+				break;
+			default:
+				init();
+			}
 		}
 	}
 
@@ -100,7 +206,7 @@ cv::Mat CRobot::extrinsic(int roll, int pitch, int yaw, float x, float y, float 
 	float sx = sin((float)roll * PI / 180);
 	float cx = cos((float)roll * PI / 180);
 	float sy = sin((float)pitch * PI / 180);
-	float cy = cos((float)pitch * PI / 180);
+	float cy = cos((float)pitch * PI / 180); 
 	float sz = sin((float)yaw * PI / 180);
 	float cz = cos((float)yaw * PI / 180);
 
@@ -314,9 +420,9 @@ void CRobot::create_lab5()
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
 		extrinsic(0, 0, 90, 0, 0, 0),
-		extrinsic(0, 0, -90, 0.175, 0, 0, false),
+		extrinsic(0, 0, 90, 0.175, 0, 0, false),
 		extrinsic(0, 0, 0, 0.15, 0, 0, false),
-		extrinsic(0, 0, -90, 0.15, (float)_joint[3] / 1000, 0, false)
+		extrinsic(0, 0, 90, 0.15, -1*(float)_joint[3] / 1000, 0, false)
 	};
 
 	vector<Mat> rotate_box = {
@@ -345,10 +451,10 @@ void CRobot::create_lab5()
 
 void CRobot::draw_lab5()
 {
-	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+	_canvas_copy = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
-	_virtualcam.update_settings(_canvas);
-	update_settings(_canvas);
+	_virtualcam.update_settings(_canvas_copy);
+	update_settings(_canvas_copy);
 
 	Mat current_view = extrinsic();
 
@@ -365,8 +471,8 @@ void CRobot::draw_lab5()
 		transformPoints(O, current_view);
 
 		//Draw box + worldview
-		drawCoord(_canvas, O);
-		drawBox(_canvas, x.shape, x.color);
+		drawCoord(_canvas_copy, O);
+		drawBox(_canvas_copy, x.shape, x.color);
 	}
 
 	//Draw last worldview (end effector)
@@ -380,7 +486,7 @@ void CRobot::draw_lab5()
 	current_view = current_view * effector_translate * derotate_world * derotate_robot;
 	std::vector<Mat> O = createCoord();
 	transformPoints(O, current_view);
-	drawCoord(_canvas, O);
+	drawCoord(_canvas_copy, O);
 
-	cv::imshow(CANVAS_NAME, _canvas);
+	cv::imshow(CANVAS_NAME, _canvas_copy);
 }

@@ -522,9 +522,9 @@ void CCamera::update_settings(Mat &im)
 	if (cvui::button(im, _camera_setting_window.x, _camera_setting_window.y, 100, 30, "Reset"))
 	{
 		init(im.size());
-	}
+	}	
 
-	cvui::update();
+	//cvui::update();
 
 	//////////////////////////////
 	// Update camera model
