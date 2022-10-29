@@ -334,6 +334,9 @@ void CRobot::create_lab5()
 	_lab5_robot.clear();
 	vector<Scalar> colors = { WHITE, RED, GREEN, BLUE };
 
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+	_canvas_copy = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
 		extrinsic(0, 0, 90, 0, 0, 0),
@@ -368,9 +371,10 @@ void CRobot::create_lab5()
 
 void CRobot::draw_lab5()
 {
-	_canvas_copy = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
+	_virtualcam.detect_aruco(_canvas, _canvas_copy);
 	_virtualcam.update_settings(_canvas_copy);
+
 	update_settings(_canvas_copy);
 
 	Mat current_view = extrinsic();
@@ -387,13 +391,14 @@ void CRobot::draw_lab5()
 		std::vector<Mat> O = createCoord();
 		transformPoints(O, current_view);
 
-		//Draw box + worldview
-		drawCoord(_canvas_copy, O);
-		drawBox(_canvas_copy, x.shape, x.color);
+		if (_virtualcam.get_pose_seen()) {
+			//Draw box + worldview
+			drawCoord(_canvas_copy, O);
+			drawBox(_canvas_copy, x.shape, x.color);
+		}
 	}
 
 	//Draw last worldview (end effector)
-	//(float)_joint[3] / 1000
 	Mat effector_translate = extrinsic(0, 0, 0, 0.15, 0, 0, false);
 
 	//TODO **************************************************************
@@ -407,7 +412,10 @@ void CRobot::draw_lab5()
 
 	std::vector<Mat> O = createCoord();
 	transformPoints(O, current_view);
-	drawCoord(_canvas_copy, O);
+
+	//Draw coordinates if pose is seen
+	if (_virtualcam.get_pose_seen())
+		drawCoord(_canvas_copy, O);
 
 	cv::imshow(CANVAS_NAME, _canvas_copy);
 }
