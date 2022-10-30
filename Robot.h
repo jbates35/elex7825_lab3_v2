@@ -64,7 +64,7 @@ private:
 	void transformPoints(std::vector<Mat>& points, Mat T);
 	
 	void drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab=3);
-	void drawCoord(Mat& im, std::vector<Mat> coord3d);
+	void drawCoord(Mat& im, std::vector<Mat> coord3d, int lab = 3);
 		
 	////////////////////////////////////
 	// LAB 5

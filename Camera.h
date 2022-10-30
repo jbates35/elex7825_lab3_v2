@@ -14,6 +14,8 @@ using namespace dnn;
 
 #define PI 3.14159265359
 
+#define MODEL_SCALE 1.8
+
 class CCamera
 {
 public:
@@ -29,6 +31,7 @@ private:
 
 	void calculate_intrinsic();
 	void calculate_extrinsic();
+	void calculate_real_extrinsic();
 
 	// CVUI setting variables
 	int _cam_setting_f;
@@ -43,6 +46,7 @@ private:
 	Mat _cam_real_intrinsic;
 	Mat _cam_real_extrinsic;
 	Mat _cam_real_dist_coeff;
+	Mat _trans_factor;
 
 	//Time 
 	double refresh, refresh_prev;
@@ -93,6 +97,7 @@ public:
 
 	bool get_pose_seen() { return pose_seen; }
 
+	Mat rotate;
 
 	bool testing;
 

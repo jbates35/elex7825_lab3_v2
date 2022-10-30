@@ -19,15 +19,18 @@ using namespace aruco;
 #include "cvui.h"
 
 #include "Robot.h"
+#include "Camera.h"
 
 void lab1()
 {
-  // MATLAB
+   CCamera _virtualcam;
+   _virtualcam.createChArUcoBoard();
 }
 
 void lab2()
 {
-  // MATLAB
+   CCamera _virtualcam;
+   _virtualcam.calibrate_board();
 }
 
 void lab3(int cam_id)
@@ -101,8 +104,6 @@ int main(int argc, char* argv[])
   while (sel != 0)
   {
     cout << "\n*****************************************************";
-    cout << "\n(1) Lab 1 - Coordinate Transforms 2D";
-    cout << "\n(2) Lab 2 - Coordinate Transforms 3D";
     cout << "\n(3) Lab 3 - Virtual Camera";
     cout << "\n(4) Lab 4 - Camera Calibration";
     cout << "\n(5) Lab 5 - Forward Kinematics";
@@ -111,6 +112,8 @@ int main(int argc, char* argv[])
     cout << "\n(8) Lab 8 - Object Tracking";
     cout << "\n(9) Lab 9 - DNN";
     cout << "\n(0) Exit";
+    cout << "\n\n(1) Create Charuco board";
+    cout << "\n(2) Calibrate Camera";
     cout << "\n>> ";
 
     cin >> sel;

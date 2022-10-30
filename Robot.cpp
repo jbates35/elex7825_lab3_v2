@@ -84,7 +84,7 @@ void CRobot::update_settings(Mat& im)
 
 	//Animate
 	if (_do_animate != 0) {
-		int step_size = 5;
+		int step_size = 10;
 		int i = _do_animate - 1;
 
 		switch (_stage) {
@@ -181,7 +181,6 @@ std::vector<Mat> CRobot::createCoord()
 	return coord;
 }
 
-
 void CRobot::transformPoints(std::vector<Mat>& points, Mat T)
 {
 	for (int i = 0; i < points.size(); i++)
@@ -219,14 +218,21 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab)
 	}
 }
 
-void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
+void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d, int lab)
 {
 	Point2f O, X, Y, Z;
 
-	_virtualcam.transform_to_image(coord3d.at(0), O);
-	_virtualcam.transform_to_image(coord3d.at(1), X);
-	_virtualcam.transform_to_image(coord3d.at(2), Y);
-	_virtualcam.transform_to_image(coord3d.at(3), Z);
+	if (lab == 3) {
+		_virtualcam.transform_to_image(coord3d.at(0), O);
+		_virtualcam.transform_to_image(coord3d.at(1), X);
+		_virtualcam.transform_to_image(coord3d.at(2), Y);
+		_virtualcam.transform_to_image(coord3d.at(3), Z);
+	} else {
+		_virtualcam.transform_to_image_real(coord3d.at(0), O);
+		_virtualcam.transform_to_image_real(coord3d.at(1), X);
+		_virtualcam.transform_to_image_real(coord3d.at(2), Y);
+		_virtualcam.transform_to_image_real(coord3d.at(3), Z);
+	}
 
 	line(im, O, X, CV_RGB(255, 0, 0), 1); // X=RED
 	line(im, O, Y, CV_RGB(0, 255, 0), 1); // Y=GREEN
@@ -281,7 +287,6 @@ void CRobot::draw_simple_robot()
 	cv::imshow(CANVAS_NAME, _canvas);
 }
 
-
 void CRobot::draw_more_complex_robot()
 {
 	_virtualcam.detect_aruco(_canvas, _canvas_copy);
@@ -291,7 +296,7 @@ void CRobot::draw_more_complex_robot()
 	Vec3d tvec = _virtualcam.get_tvec();
 
 	for (auto x : _simple_robot) {
-		if(_virtualcam.get_pose_seen())
+		if (_virtualcam.get_pose_seen())
 			drawBox(_canvas_copy, x.shape, x.color, 4);
 	}
 
@@ -323,7 +328,6 @@ void CRobot::draw_more_complex_robot()
 	cv::imshow("7825 Canvas Lab 4", _canvas_copy);
 
 }
-
 
 void CRobot::fkine()
 {
@@ -393,8 +397,8 @@ void CRobot::draw_lab5()
 
 		if (_virtualcam.get_pose_seen()) {
 			//Draw box + worldview
-			drawCoord(_canvas_copy, O);
-			drawBox(_canvas_copy, x.shape, x.color);
+			drawCoord(_canvas_copy, O, 5);
+			drawBox(_canvas_copy, x.shape, x.color, 5);
 		}
 	}
 
@@ -402,10 +406,9 @@ void CRobot::draw_lab5()
 	Mat effector_translate = extrinsic(0, 0, 0, 0.15, 0, 0, false);
 
 	//TODO **************************************************************
-	Mat derotate_world = extrinsic();
 	Mat derotate_robot = extrinsic(0, 0, 90) * extrinsic(0, 0, 90) * _lab5_robot[1].rotate * _lab5_robot[2].rotate * extrinsic(0, 0, 90) * _lab5_robot[3].rotate;
 
-	current_view = current_view * effector_translate * derotate_world * derotate_robot.inv();
+	current_view = current_view * effector_translate * derotate_robot.inv();
 	
 	//FLIP
 	current_view *= extrinsic(0, 0, 180);
@@ -415,7 +418,8 @@ void CRobot::draw_lab5()
 
 	//Draw coordinates if pose is seen
 	if (_virtualcam.get_pose_seen())
-		drawCoord(_canvas_copy, O);
+		drawCoord(_canvas_copy, O, 5);
 
 	cv::imshow(CANVAS_NAME, _canvas_copy);
 }
+
