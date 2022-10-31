@@ -14,7 +14,7 @@ using namespace dnn;
 
 #define PI 3.14159265359
 
-#define MODEL_SCALE 1.8
+#define MODEL_SCALE 1
 
 class CCamera
 {
