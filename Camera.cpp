@@ -60,7 +60,7 @@ void CCamera::init (Size image_size, int cam_id)
 	dictionary_id = aruco::DICT_6X6_250;
 
 	size_aruco_square = (float) MODEL_SCALE * 35 / 1000; // MEASURE THESE
-	size_aruco_mark = (float)MODEL_SCALE * 35 / 2000; // MEASURE THESE
+	size_aruco_mark = (float) MODEL_SCALE * 35 / 2000; // MEASURE THESE
 
 	detectorParams = aruco::DetectorParameters::create();
 	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
@@ -393,13 +393,13 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 		bool validPose = false;
 		if (_cam_real_intrinsic.total() != 0) 
 			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
-
+		/*
 		if (charucoIds.size() > 0)
 			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
 
 		if (charucoCorners.size() > 0)
 			aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds);
-
+			*/
 		if (validPose) {
 			pose_seen = true;
 			
@@ -409,10 +409,11 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 			_cam_setting_z = tvec[2] * 1000;
 		}
 
+		/*
 		if (pose_seen)
 			//Draw frame axis on corner of grid
 			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
-
+			*/
 	
 	}
 }
