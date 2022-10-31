@@ -343,7 +343,7 @@ void CRobot::create_lab5()
 
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
-		extrinsic(0, 0, 90, 0, 0, 0),
+		extrinsic(-90, 0, 90, 0, 0, 0),
 		extrinsic(0, 0, 90, 0.175, 0, 0, false),
 		extrinsic(0, 0, 0, 0.15, 0, 0, false),
 		extrinsic(0, 0, 90, 0.15, -1*(float)_joint[3] / 1000, 0, false)
