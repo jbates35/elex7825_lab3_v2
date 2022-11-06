@@ -75,6 +75,8 @@ private:
 	Point2f _board_pose_2d;
 	Mat _new_pt_3d, _intrinsic_cam;
 
+	int _lab;
+
 	bool pose_seen; // false on initialize, true once pose has been seen
 
 public:
@@ -96,6 +98,8 @@ public:
 	void update_settings(Mat &im);
 
 	bool get_pose_seen() { return pose_seen; }
+
+	void set_lab(int lab);
 
 	Mat rotate;
 

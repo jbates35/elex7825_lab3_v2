@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 
 #include "Robot.h"
 #include <cmath>
@@ -8,11 +8,14 @@
 
 #include "cvui.h"
 
-CRobot::CRobot()
+CRobot::CRobot(int lab)
 {
+	//Set lab
+	set_lab(lab);
+	_worldview = false;
+
 	//////////////////////////////////////
 	// Create image and window for drawing
-	
 	_image_size = Size(1000, 600);
 
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3);
@@ -35,6 +38,7 @@ CRobot::CRobot()
 	_joint_min = { -180, -180, -180, -25 };
 	_joint_max = { 180, 180, 180, 175 };
 
+	_idir = {"X","Y","Z","Θ"};
 }
 
 CRobot::~CRobot()
@@ -50,8 +54,15 @@ void CRobot::init()
 	for (int i = 0; i < 4; i++) _joint.push_back(0);
 	_joint[3] = 75;
 
+	_ijoint.clear();
+	for (int i = 0; i < 4; i++) _ijoint.push_back(0);
+	_ijoint[2] = 75;
+
 	_stage = 0;
 	_count = 0;
+
+	_istage = 0;
+	_icount = 0;
 
 }
 
@@ -80,6 +91,17 @@ void CRobot::update_settings(Mat& im)
 
 	if (cvui::button(im, _setting_window.x+110, _setting_window.y, 100, 30, "reset")) {
 		init();
+	}
+
+	_setting_window.y += 55;
+
+	if (_lab >= 6) {
+		for (int i = 0; i < _joint.size(); i++) {
+			cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_ijoint[i], _joint_min[i], _joint_max[i]);
+			cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, _idir[i]);
+
+			_setting_window.y += 45;
+		}
 	}
 
 	//Animate
@@ -150,6 +172,12 @@ Mat CRobot::createHT(Vec3d t, Vec3d r)
 	return (Mat1f(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 }
 
+void CRobot::set_lab(int lab)
+{
+	_lab = lab;
+	_virtualcam.set_lab(lab);
+}
+
 std::vector<Mat> CRobot::createBox(float w, float h, float d)
 {
 	std::vector <Mat> box;
@@ -197,7 +225,7 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab)
 	float draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
 	float draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
-	if (lab == 3) {
+	if (_worldview == false) {
 		_virtualcam.transform_to_image(box3d, box2d);
 	} else {
 		_virtualcam.transform_to_image_real(box3d, box2d);
@@ -222,7 +250,7 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d, int lab)
 {
 	Point2f O, X, Y, Z;
 
-	if (lab == 3) {
+	if (_worldview==false) {
 		_virtualcam.transform_to_image(coord3d.at(0), O);
 		_virtualcam.transform_to_image(coord3d.at(1), X);
 		_virtualcam.transform_to_image(coord3d.at(2), Y);
@@ -257,7 +285,6 @@ void CRobot::create_simple_robot()
 		);
 
 	for (int i = 0; i < translate.size(); i++) {
-
 		box _box;
 		_box.shape = createBox(0.05/2, 0.05/2, 0.05/2);
 		_box.color = colors[i];
@@ -341,9 +368,12 @@ void CRobot::create_lab5()
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 	_canvas_copy = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
+	int x_fix = 0;
+	if (_worldview) x_fix = -90;
+
 	// roll pitch yaw x y z
 	vector<Mat> transpose_box = {
-		extrinsic(-90, 0, 90, 0, 0, 0),
+		extrinsic(x_fix, 0, 90, 0, 0, 0),
 		extrinsic(0, 0, 90, 0.175, 0, 0, false),
 		extrinsic(0, 0, 0, 0.15, 0, 0, false),
 		extrinsic(0, 0, 90, 0.15, -1*(float)_joint[3] / 1000, 0, false)
@@ -372,11 +402,16 @@ void CRobot::create_lab5()
 	}	
 }
 
+void CRobot::ikine()
+{
+
+}
 
 void CRobot::draw_lab5()
 {
+	if(_worldview) 
+		_virtualcam.detect_aruco(_canvas, _canvas_copy);
 
-	_virtualcam.detect_aruco(_canvas, _canvas_copy);
 	_virtualcam.update_settings(_canvas_copy);
 
 	update_settings(_canvas_copy);
@@ -418,6 +453,53 @@ void CRobot::draw_lab5()
 
 	//Draw coordinates if pose is seen
 	if (_virtualcam.get_pose_seen())
+		drawCoord(_canvas_copy, O, 5);
+
+	cv::imshow(CANVAS_NAME, _canvas_copy);
+}
+
+void CRobot::draw_lab6()
+{
+	if (_worldview)
+		_virtualcam.detect_aruco(_canvas, _canvas_copy);
+
+	_virtualcam.update_settings(_canvas_copy);
+	update_settings(_canvas_copy);
+
+	Mat current_view = extrinsic();
+
+	for (auto x : _lab5_robot) {
+
+		//Change origin
+		current_view = current_view * x.transpose * x.rotate;
+
+		//Transform box
+		transformPoints(x.shape, current_view);
+
+		//Create worldview
+		std::vector<Mat> O = createCoord();
+		transformPoints(O, current_view);
+
+		//if (_virtualcam.get_pose_seen()) {
+			//Draw box + worldview
+			drawCoord(_canvas_copy, O, 5);
+			drawBox(_canvas_copy, x.shape, x.color, 5);
+		//}
+	}
+
+	//Draw last worldview (end effector)
+	Mat effector_translate = extrinsic(0, 0, 0, 0.15, 0, 0, false);
+
+	current_view = current_view * effector_translate;// *derotate_robot.inv();
+
+	//FLIP
+	current_view *= extrinsic(0, 0, 180);
+
+	std::vector<Mat> O = createCoord();
+	transformPoints(O, current_view);
+
+	//Draw coordinates if pose is seen
+	//if (_virtualcam.get_pose_seen())
 		drawCoord(_canvas_copy, O, 5);
 
 	cv::imshow(CANVAS_NAME, _canvas_copy);

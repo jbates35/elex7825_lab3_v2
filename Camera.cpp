@@ -527,3 +527,8 @@ void CCamera::update_settings(Mat &im)
 		}
 	}
 }
+
+void CCamera::set_lab(int lab)
+{
+	_lab = lab;
+}

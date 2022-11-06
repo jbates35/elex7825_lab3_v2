@@ -22,7 +22,7 @@ using namespace dnn;
 class CRobot
 {
 public:
-	CRobot();
+	CRobot(int lab = 0);
 	~CRobot();
 
 private:
@@ -45,6 +45,10 @@ private:
 		Mat transpose;
 		Mat rotate;
 	};
+
+	int _lab;
+	void set_lab(int lab);
+
 	vector<box_l5> _lab5_robot;
 
 
@@ -80,9 +84,19 @@ private:
 	vector<int> _joint_min, _joint_max;
 	vector<Point2f> rotate_robot(vector<Point3f>);
 	int _stage, _count;
+
+
+	//////////////////////////////////
+	// LAB 6
+	vector<string> _idir;
+	vector<int> _ijoint;
+	int _istage, _icount;
+	bool _worldview;
+	vector<float> ikine_joints(bool positive = true);
   
 public:
 	Mat createHT(Vec3d t, Vec3d r);
+	void set_worldview() { _worldview = true; }
 
 	/////////////////////////////
 	// Lab 3
@@ -101,5 +115,10 @@ public:
 	void fkine(); // Input joint variables, output end effector pose
 	void create_lab5();
 	void draw_lab5(); 
+
+	/////////////////////////
+	// Lab 6
+	void ikine();
+	void draw_lab6();
 };
 
