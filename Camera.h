@@ -76,8 +76,10 @@ private:
 	Mat _new_pt_3d, _intrinsic_cam;
 
 	int _lab;
-
+	int _cam_id;
 	bool pose_seen; // false on initialize, true once pose has been seen
+	bool _worldview;
+
 
 public:
 	void init(Size image_size, int cam_id=0);
@@ -100,6 +102,9 @@ public:
 	bool get_pose_seen() { return pose_seen; }
 
 	void set_lab(int lab);
+
+	//If camera is used, use worldview
+	void enable_worldview();
 
 	Mat rotate;
 

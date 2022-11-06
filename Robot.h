@@ -9,6 +9,13 @@ using namespace std;
 using namespace cv;
 using namespace dnn;
 
+#define ANIMATE_INCREMENT 5
+#define MAX_ANIMATE_RANGE 200
+
+#define ARM_LENGTH 0.15 // Length of robot arm (a1, a2)
+#define MAX_ICOORD 325
+#define MIN_ICOORD 50.5
+
 #define WHITE Scalar(255, 255, 255)
 #define RED Scalar(0, 0, 255)
 #define GREEN Scalar(0, 255, 0)
@@ -80,8 +87,8 @@ private:
 	
 	//Joint angles
 	vector<int> _joint, _joint_disabled;
-	Mat _world_view;
 	vector<int> _joint_min, _joint_max;
+	vector<string> _joint_names;
 	vector<Point2f> rotate_robot(vector<Point3f>);
 	int _stage, _count;
 
@@ -89,14 +96,28 @@ private:
 	//////////////////////////////////
 	// LAB 6
 	vector<string> _idir;
-	vector<int> _ijoint;
-	int _istage, _icount;
+	vector<int> _icoord;
+	vector<int> _icoord_min, _icoord_max;
 	bool _worldview;
-	vector<float> ikine_joints(bool positive = true);
+	vector<int> ikine_joints(int x_in = 0, int y_in = 0, bool positive = true);
+	int _equation_select;
+	int _angle;
+	bool _kin_select; // false for froward kinematics, true for inverse kinematics
+	Mat _current_view;
+	void check_make_positive();
+	Point2i _start_point;
+	Point2i _increment;
+	vector<Point2i> _corner_point;
+	vector<Point2i> _corner_incs;
+	Point2f _diff_norm;
+	int _do_animate_inv;
+	int _istage, _icount;
+	int _istart;
+
   
 public:
 	Mat createHT(Vec3d t, Vec3d r);
-	void set_worldview() { _worldview = true; }
+	void set_worldview();
 
 	/////////////////////////////
 	// Lab 3

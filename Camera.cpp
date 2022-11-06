@@ -14,6 +14,8 @@ CCamera::~CCamera()
 
 void CCamera::init (Size image_size, int cam_id)
 {
+	_worldview = false;
+
 	//////////////////////////////////////
 	// CVUI interface default variables
 
@@ -28,6 +30,7 @@ void CCamera::init (Size image_size, int cam_id)
 	_cam_setting_yaw = 0; // units in degrees
 
 	_size = image_size;
+	_cam_id = cam_id;
 
 	//////////////////////////////////////
 	// Virtual Camera intrinsic
@@ -53,35 +56,6 @@ void CCamera::init (Size image_size, int cam_id)
 	//Tests
 	refresh = cv::getTickCount();
 	testing = false;
-
-
-	// Board settings
-	board_size = Size(5, 7);
-	dictionary_id = aruco::DICT_6X6_250;
-
-	size_aruco_square = (float) MODEL_SCALE * 35 / 1000; // MEASURE THESE
-	size_aruco_mark = (float) MODEL_SCALE * 35 / 2000; // MEASURE THESE
-
-	detectorParams = aruco::DetectorParameters::create();
-	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
-
-	charucoboard = aruco::CharucoBoard::create(board_size.width, board_size.height, size_aruco_square, size_aruco_mark, dictionary);
-	board = charucoboard.staticCast<aruco::Board>();
-
-	inputVideo.open(cam_id, CAP_DSHOW);
-
-	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
-
-	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
-
-	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
-	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
-
-	pose_seen = false;
-
-	if(testing)
-		std::cout << "Camera matrix is... \n" << _cam_real_intrinsic << "\n\nDist Coefficients Matrix is...\n" << _cam_real_dist_coeff << "\n\n";
 }
 
 void CCamera::calculate_intrinsic()
@@ -517,7 +491,8 @@ void CCamera::update_settings(Mat &im)
 	calculate_extrinsic();
 
 	//calculate real world extrinsic
-	calculate_real_extrinsic();
+	if (_worldview)
+		calculate_real_extrinsic();
 
 	if (testing) {
 		if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT*3) {
@@ -531,4 +506,37 @@ void CCamera::update_settings(Mat &im)
 void CCamera::set_lab(int lab)
 {
 	_lab = lab;
+}
+
+void CCamera::enable_worldview()
+{
+	_worldview = true;
+
+	// Board settings
+	board_size = Size(5, 7);
+	dictionary_id = aruco::DICT_6X6_250;
+
+	size_aruco_square = (float)MODEL_SCALE * 35 / 1000; // MEASURE THESE
+	size_aruco_mark = (float)MODEL_SCALE * 35 / 2000; // MEASURE THESE
+
+	detectorParams = aruco::DetectorParameters::create();
+	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
+
+	charucoboard = aruco::CharucoBoard::create(board_size.width, board_size.height, size_aruco_square, size_aruco_mark, dictionary);
+	board = charucoboard.staticCast<aruco::Board>();
+
+	inputVideo.open(_cam_id, CAP_DSHOW);
+
+	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+
+	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
+
+	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
+	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
+
+	pose_seen = false;
+
+	if (testing)
+		std::cout << "Camera matrix is... \n" << _cam_real_intrinsic << "\n\nDist Coefficients Matrix is...\n" << _cam_real_dist_coeff << "\n\n";
 }
