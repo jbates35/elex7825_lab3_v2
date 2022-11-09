@@ -12,6 +12,26 @@ CCamera::~CCamera()
 {
 }
 
+Point3i CCamera::convert_to_angle(Mat rotate)
+{
+	float r11, r21, r31, r32, r33;
+	r11 = rotate.at<float>(0, 0);
+	r21 = rotate.at<float>(1, 0);
+	r31 = rotate.at<float>(2, 0);
+	r32 = rotate.at<float>(2, 1);
+	r33 = rotate.at<float>(2, 2);
+
+	float pitch_rads = atan2(-1 * r31, sqrt(r11 * r11 + r21 * r21));
+	float roll_rads = atan2(r32 / cos(pitch_rads), r33 / cos(pitch_rads));
+	float yaw_rads = atan2(r21 / cos(pitch_rads), r11 / cos(pitch_rads));
+
+	return Point3i(
+		floor(180 / PI * roll_rads),
+		floor(180 / PI * pitch_rads),
+		floor(180 / PI * yaw_rads)
+	);
+}
+
 void CCamera::init (Size image_size, int cam_id)
 {
 	_worldview = false;
@@ -56,6 +76,9 @@ void CCamera::init (Size image_size, int cam_id)
 	//Tests
 	refresh = cv::getTickCount();
 	testing = false;
+	update_angle = false;
+
+	rvec_prime = Point3i(0, 0, 0);
 }
 
 void CCamera::calculate_intrinsic()
@@ -131,6 +154,47 @@ void CCamera::calculate_real_extrinsic()
 
 	_trans_factor = _cam_real_intrinsic * focus_mat * extrinsic_mat.inv() * rotation.inv() * T;
 	rotate = rotation.inv() * T;
+
+	Mat R = (Mat1f(3, 3) <<
+		rotate.at<float>(0, 0), rotate.at<float>(0, 1), rotate.at<float>(0, 1),
+		rotate.at<float>(1, 0), rotate.at<float>(1, 1), rotate.at<float>(1, 1),
+		rotate.at<float>(2, 0), rotate.at<float>(2, 1), rotate.at<float>(2, 1)
+		);
+
+	/*
+	Mat rotate_vec;
+	Rodrigues(R, rotate_vec);
+
+	_cam_setting_roll = floor(180/PI * rotate_vec.at<float>(0));
+	_cam_setting_pitch = floor(180 / PI * rotate_vec.at<float>(1));
+	_cam_setting_yaw = floor(180 / PI * rotate_vec.at<float>(2));
+	*/
+	/*
+	float r11, r21, r31, r32, r33;
+	r11 = rotate.at<float>(0, 0);
+	r21 = rotate.at<float>(1, 0);
+	r31 = rotate.at<float>(2, 0);
+	r32 = rotate.at<float>(2, 1);
+	r33 = rotate.at<float>(2, 2);
+
+	float pitch_rads = atan2(-1 * r31, sqrt(r11 * r11 + r21 * r21));
+	float roll_rads = atan2(r32 / cos(pitch_rads), r33 / cos(pitch_rads));
+	float yaw_rads = atan2(r21 / cos(pitch_rads), r11 / cos(pitch_rads));
+	
+	rvec_prime = Point3f(
+		floor(180 / PI * roll_rads),
+		floor(180 / PI * pitch_rads),
+		floor(180 / PI * yaw_rads)
+	);
+	*/
+
+	 rvec_prime = convert_to_angle(rotate);
+	_cam_setting_roll = rvec_prime.x;
+	_cam_setting_pitch = rvec_prime.y;
+	_cam_setting_yaw = rvec_prime.z;
+	
+
+	
 }
 
 bool CCamera::save_camparam(string filename, Mat& cam, Mat& dist)
@@ -367,15 +431,16 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 		bool validPose = false;
 		if (_cam_real_intrinsic.total() != 0) 
 			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
-		/*
+		
 		if (charucoIds.size() > 0)
 			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
 
 		if (charucoCorners.size() > 0)
 			aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds);
-			*/
+			
 		if (validPose) {
 			pose_seen = true;
+			update_angle = true;
 			
 			//Dump values into trackbars
 			_cam_setting_x = tvec[0] * 1000;
@@ -383,11 +448,13 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 			_cam_setting_z = tvec[2] * 1000;
 		}
 
-		/*
+		
 		if (pose_seen)
 			//Draw frame axis on corner of grid
 			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
-			*/
+			
+
+		
 	
 	}
 }
@@ -491,8 +558,10 @@ void CCamera::update_settings(Mat &im)
 	calculate_extrinsic();
 
 	//calculate real world extrinsic
-	if (_worldview)
+	if (_worldview && update_angle) {
 		calculate_real_extrinsic();
+		update_angle = false;
+	}
 
 	if (testing) {
 		if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT*3) {

@@ -80,6 +80,8 @@ private:
 	bool pose_seen; // false on initialize, true once pose has been seen
 	bool _worldview;
 
+	Point3i rvec_prime;
+	bool update_angle;
 
 public:
 	void init(Size image_size, int cam_id=0);
@@ -110,7 +112,10 @@ public:
 
 	bool testing;
 
+	void set_rvec(Point3i rvec_local) { rvec_prime = rvec_local;  }
+
 	cv::Vec3d get_rvec() { return rvec; }
 	cv::Vec3d get_tvec() { return tvec; }
+	Point3i convert_to_angle(Mat T);
 };
 

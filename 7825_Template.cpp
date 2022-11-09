@@ -110,8 +110,6 @@ int main(int argc, char* argv[])
     cout << "\n(5) Lab 5 - Forward Kinematics";
     cout << "\n(6) Lab 6 - Inverse Kinematics";
     cout << "\n(7) Lab 7 - Trajectories";
-    cout << "\n(8) Lab 8 - Object Tracking";
-    cout << "\n(9) Lab 9 - DNN";
     cout << "\n(0) Exit";
     cout << "\n\n(1) Create Charuco board";
     cout << "\n(2) Calibrate Camera";

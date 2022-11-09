@@ -523,6 +523,9 @@ void CRobot::draw_more_complex_robot()
 			-1 * sy, cy * sx, cy * cx, 0,
 			0, 0, 0, 1);
 
+
+
+
 		for (auto x : _simple_robot)
 			transformPoints(x.shape, T);
 	}
