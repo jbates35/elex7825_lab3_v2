@@ -4,6 +4,9 @@
 
 CCamera::CCamera()
 {
+
+	testing = false;
+
 	// Initialize with a default camera image size 
 	init(Size(1000, 600));
 }
@@ -12,8 +15,57 @@ CCamera::~CCamera()
 {
 }
 
+Point3i CCamera::convert_to_angle(Mat rotate)
+{
+	float r11, r21, r31, r32, r33;
+	r11 = rotate.at<float>(0, 0);
+	r21 = rotate.at<float>(1, 0);
+	r31 = rotate.at<float>(2, 0);
+	r32 = rotate.at<float>(2, 1);
+	r33 = rotate.at<float>(2, 2);
+
+	float pitch_rads = atan2(-1 * r31, sqrt(r11 * r11 + r21 * r21));
+	float roll_rads = atan2(r32 / cos(pitch_rads), r33 / cos(pitch_rads));
+	float yaw_rads = atan2(r21 / cos(pitch_rads), r11 / cos(pitch_rads));
+
+	return Point3i(
+		floor(180 / PI * roll_rads),
+		floor(180 / PI * pitch_rads),
+		floor(180 / PI * yaw_rads)
+	);
+}
+
+cv::Mat CCamera::extrinsic(int roll, int pitch, int yaw, float x, float y, float z, bool normal)
+{	
+	//Calculate angles
+	float sx = sin((float)roll * PI / 180);
+	float cx = cos((float)roll * PI / 180);
+	float sy = sin((float)pitch * PI / 180);
+	float cy = cos((float)pitch * PI / 180);
+	float sz = sin((float)yaw * PI / 180);
+	float cz = cos((float)yaw * PI / 180);
+
+	Mat rotate = (Mat1f(4, 4) <<
+		cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
+		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0,
+		-1 * sy, cy * sx, cy * cx, 0,
+		0, 0, 0, 1);
+
+	Mat translate = (Mat1f(4, 4) <<
+		1, 0, 0, x,
+		0, 1, 0, y,
+		0, 0, 1, z,
+		0, 0, 0, 1
+		);
+
+	if (normal) return rotate * translate;
+	else return translate * rotate;
+}
+
 void CCamera::init (Size image_size, int cam_id)
 {
+	_worldview = false;
+
 	//////////////////////////////////////
 	// CVUI interface default variables
 
@@ -28,6 +80,7 @@ void CCamera::init (Size image_size, int cam_id)
 	_cam_setting_yaw = 0; // units in degrees
 
 	_size = image_size;
+	_cam_id = cam_id;
 
 	//////////////////////////////////////
 	// Virtual Camera intrinsic
@@ -50,38 +103,23 @@ void CCamera::init (Size image_size, int cam_id)
 		0, 0, 0, 1
 		);
 
+	box.x = 0;
+	box.y = 0;
+	box.z = 0;
+	box.pitch = 0;
+	box.roll = 0;
+	box.yaw = 0;
+	_can_detect = false;
+	//For detectin aruco boxes
+	_pose_detected = false;
+	_marker_found = { false, false, false };
+	_marker_id = { 50, 60, 70 };
+
 	//Tests
 	refresh = cv::getTickCount();
-	testing = false;
+	update_angle = false;
 
-
-	// Board settings
-	board_size = Size(5, 7);
-	dictionary_id = aruco::DICT_6X6_250;
-
-	size_aruco_square = (float) MODEL_SCALE * 35 / 1000; // MEASURE THESE
-	size_aruco_mark = (float) MODEL_SCALE * 35 / 2000; // MEASURE THESE
-
-	detectorParams = aruco::DetectorParameters::create();
-	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
-
-	charucoboard = aruco::CharucoBoard::create(board_size.width, board_size.height, size_aruco_square, size_aruco_mark, dictionary);
-	board = charucoboard.staticCast<aruco::Board>();
-
-	inputVideo.open(cam_id, CAP_DSHOW);
-
-	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
-
-	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
-
-	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
-	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
-
-	pose_seen = false;
-
-	if(testing)
-		std::cout << "Camera matrix is... \n" << _cam_real_intrinsic << "\n\nDist Coefficients Matrix is...\n" << _cam_real_dist_coeff << "\n\n";
+	rvec_prime = Point3i(0, 0, 0);
 }
 
 void CCamera::calculate_intrinsic()
@@ -155,8 +193,62 @@ void CCamera::calculate_real_extrinsic()
 		-1 * sy, cy * sx, cy * cx, 0,
 		0, 0, 0, 1);
 
-	_trans_factor = _cam_real_intrinsic * focus_mat * extrinsic_mat.inv() * rotation.inv() * T;
-	rotate = rotation.inv() * T;
+	_trans_factor = _cam_real_intrinsic * focus_mat * extrinsic_mat.inv() * rotation.inv();
+
+	Mat nu_extrinsic_mat = Mat((Mat1f(4, 4) <<
+		_R_matrix_inv.at<float>(0, 0), _R_matrix_inv.at<float>(0, 1), _R_matrix_inv.at<float>(0, 2), tvec[0],
+		_R_matrix_inv.at<float>(1, 0), _R_matrix_inv.at<float>(1, 1), _R_matrix_inv.at<float>(1, 2), tvec[1],
+		_R_matrix_inv.at<float>(2, 0), _R_matrix_inv.at<float>(2, 1), _R_matrix_inv.at<float>(2, 2), tvec[2],
+		0, 0, 0, 1
+		));
+
+	if (_can_detect) {	
+		
+		/// Want Marker with respect to Board
+		Mat box_Rod;
+		Mat box_R;
+
+		box_Rod = (Mat1f(3, 1) << (float)_marker_rvec[0][0], (float)_marker_rvec[0][1], (float)_marker_rvec[0][2]);
+
+
+		//Convert box rvec and tvec to a matrix
+		Rodrigues(box_Rod, box_R);
+		Point3i angles = convert_to_angle(box_R);
+		Mat box_T = extrinsic(angles.x, angles.y, angles.z, _marker_tvec[0][0], _marker_tvec[0][1], _marker_tvec[0][2], false);
+
+
+		
+		//New total matrix solve
+		Mat total_box_T = nu_extrinsic_mat.inv() * box_T;
+
+		Mat total_box_R = (Mat1f(3, 3) <<
+			total_box_T.at<float>(0, 0), total_box_T.at<float>(0, 1), total_box_T.at<float>(0, 2),
+			total_box_T.at<float>(1, 0), total_box_T.at<float>(1, 1), total_box_T.at<float>(1, 2),
+			total_box_T.at<float>(2, 0), total_box_T.at<float>(2, 1), total_box_T.at<float>(2, 2)
+			);
+
+			
+		angles = convert_to_angle(total_box_R);
+
+		//Dump box variables
+		box.x = total_box_T.at<float>(0, 3) * 1000;
+		box.y = total_box_T.at<float>(1, 3) * 1000;
+		box.z = total_box_T.at<float>(2, 3) * 1000;
+		box.roll = angles.x;
+		box.pitch = angles.y;
+		box.yaw = angles.z;	
+			
+			
+	}
+	
+	_trans_factor *= T;
+	 rvec_prime = convert_to_angle(rotation * extrinsic(90));
+	_cam_setting_roll = rvec_prime.x;
+	_cam_setting_pitch = rvec_prime.y;
+	_cam_setting_yaw = rvec_prime.z;
+	
+
+	
 }
 
 bool CCamera::save_camparam(string filename, Mat& cam, Mat& dist)
@@ -216,8 +308,8 @@ void CCamera::calibrate_board()
 	Size board_size = Size(5, 7);
 	int dictionary_id = aruco::DICT_6X6_250;
 
-	float size_aruco_square = 0.035; // MEASURE THESE
-	float size_aruco_mark = 0.0175; // MEASURE THESE
+	float size_aruco_square = 0.034; // MEASURE THESE
+	float size_aruco_mark = 0.017; // MEASURE THESE
 
 	Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
 	Ptr<aruco::Dictionary> dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
@@ -362,6 +454,7 @@ void CCamera::calibrate_board()
 
 void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 {
+
 	if (inputVideo.grab()) {
 
 		std::vector<cv::Point2f> charucoCorners;
@@ -378,6 +471,7 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 		aruco::detectMarkers(im, dictionary, markerCorners, markerIds, detectorParams,
 			rejectedMarkers);
 
+
 		// refind strategy to detect more markers
 		aruco::refineDetectedMarkers(im, board, markerCorners, markerIds, rejectedMarkers,
 			_cam_real_intrinsic, _cam_real_dist_coeff);
@@ -389,33 +483,76 @@ void CCamera::detect_aruco(Mat& im, Mat& im_cpy)
 			aruco::interpolateCornersCharuco(markerCorners, markerIds, im, charucoboard,
 				charucoCorners, charucoIds, _cam_real_intrinsic, _cam_real_dist_coeff);
 
+
 		// estimate charuco board pose
 		bool validPose = false;
 		if (_cam_real_intrinsic.total() != 0) 
 			validPose = aruco::estimatePoseCharucoBoard(charucoCorners, charucoIds, charucoboard, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec);
-		/*
+		
 		if (charucoIds.size() > 0)
-			cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
+			if(testing) cv::aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds, cv::Scalar(255, 0, 0));
 
 		if (charucoCorners.size() > 0)
-			aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds);
-			*/
+			if(testing) aruco::drawDetectedCornersCharuco(im_cpy, charucoCorners, charucoIds);
+			
 		if (validPose) {
 			pose_seen = true;
+			update_angle = true;
 			
 			//Dump values into trackbars
 			_cam_setting_x = tvec[0] * 1000;
 			_cam_setting_y = tvec[1] * 1000;
 			_cam_setting_z = tvec[2] * 1000;
+
+			if(testing) aruco::drawDetectedMarkers(im_cpy, markerCorners, markerIds);
+
+			//Find markers we care about
+			vector< vector< Point2f > > temp_corners;
+
+			//Dump marker vecs
+			for (int i=0; i<markerIds.size(); i++)
+				for (int j = 0; j < 3; j++) 
+					if (markerIds[i] == _marker_id[j]) {
+
+						//Marker is found, make it true
+						_marker_found[j] = true;
+
+						temp_corners.push_back(markerCorners[i]);
+
+					} else {
+
+						//Marker is not found, make it false
+						_marker_found[j] = false;
+					}
+
+			//Estimate the markers we care about
+			_marker_tvec.clear();
+			_marker_rvec.clear();
+
+			//Estimate the markers
+			cv::aruco::estimatePoseSingleMarkers(temp_corners, 0.02, _cam_real_intrinsic, _cam_real_dist_coeff, _marker_rvec, _marker_tvec);
+
+			if (_marker_tvec.size() > 0) {
+				_pose_detected = true;
+				_can_detect = true;
+				
+			} else {
+				_can_detect = false;
+			}
+
 		}
 
-		/*
 		if (pose_seen)
 			//Draw frame axis on corner of grid
 			cv::drawFrameAxes(im_cpy, _cam_real_intrinsic, _cam_real_dist_coeff, rvec, tvec, 0.5f * ((float)min(board_size.width, board_size.height) * (size_aruco_square)));
-			*/
 	
-	}
+			//Draw text and what not
+	} 
+}
+
+void CCamera::detect_box(Mat& im, Mat& im_cpy)
+{
+
 }
 
 void CCamera::transform_to_image(Mat pt3d_mat, Point2f& pt)
@@ -517,13 +654,66 @@ void CCamera::update_settings(Mat &im)
 	calculate_extrinsic();
 
 	//calculate real world extrinsic
-	calculate_real_extrinsic();
+	if (_worldview && update_angle) {
+		calculate_real_extrinsic();
+		update_angle = false;
+	}
 
 	if (testing) {
-		if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= REFRESH_INT*3) {
+		if ((cv::getTickCount() - refresh) / cv::getTickFrequency() >= 0.4) {
 			refresh = cv::getTickCount();
-			std::cout << "Intrinsic cam: " << std::endl << _cam_virtual_intrinsic << std::endl; // delme
-			std::cout << "Extrinsic cam: " << std::endl << _cam_virtual_extrinsic << std::endl; //delme
+
+			for (int i = 0; i < _marker_tvec.size(); i++) {
+				//std::cout << "tvec : " < i << " : \t" << _marker_tvec[i] << endl << endl;
+				//std::cout << "rvec : " << i << " : \t" << _marker_rvec[i] << endl;									
+			}
 		}
 	}
+
+	if (testing) {
+		cv::putText(im, "X = " + to_string(box.x), Point(300, 100), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Y = " + to_string(box.y), Point(300, 120), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Z = " + to_string(box.z), Point(300, 140), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "R = " + to_string(box.roll), Point(300, 160), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "P = " + to_string(box.pitch), Point(300, 180), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Ya = " + to_string(box.yaw), Point(300, 200), 0, 0.8, Scalar(255, 255, 0));
+	}
+}
+
+void CCamera::set_lab(int lab)
+{
+	_lab = lab;
+}
+
+void CCamera::enable_worldview()
+{
+	_worldview = true;
+
+	// Board settings
+	board_size = Size(5, 7);
+	dictionary_id = aruco::DICT_6X6_250;
+
+	size_aruco_square = (float)MODEL_SCALE * 35 / 1000; // MEASURE THESE
+	size_aruco_mark = (float)MODEL_SCALE * 35 / 2000; // MEASURE THESE
+
+	detectorParams = aruco::DetectorParameters::create();
+	dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionary_id));
+
+	charucoboard = aruco::CharucoBoard::create(board_size.width, board_size.height, size_aruco_square, size_aruco_mark, dictionary);
+	board = charucoboard.staticCast<aruco::Board>();
+
+	inputVideo.open(_cam_id, CAP_DSHOW);
+
+	inputVideo.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+	inputVideo.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+
+	filename = "C:\\Users\\jbate\\source\\repos\\jbates35\\elex7825_lab3_v2\\cam_param.xml";
+
+	load_camparam(filename, _cam_real_intrinsic, _cam_real_dist_coeff);
+	_cam_real_intrinsic.convertTo(_cam_real_intrinsic, CV_32FC1);
+	 
+	pose_seen = false;
+
+	//if (testing)
+		//std::cout << "Camera matrix is... \n" << _cam_real_intrinsic << "\n\nDist Coefficients Matrix is...\n" << _cam_real_dist_coeff << "\n\n";
 }
