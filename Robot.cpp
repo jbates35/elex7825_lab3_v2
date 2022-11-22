@@ -413,12 +413,13 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour, int lab)
 		line(im, pt1, pt2, colour, 1);
 	}
 
+	/*
 	if (_virtualcam.testing) {
 		std::cout << box2d;
 		for (auto x : box2d) {
 			circle(_canvas, x, 1, RED, 2);
 		}
-	}
+	}*/
 }
 
 void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d, int lab)
@@ -543,7 +544,7 @@ void CRobot::create_lab5()
 	_canvas_copy = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
 	int x_fix = 0;
-	if (_worldview) x_fix = -90;
+	if (_worldview) x_fix = 0; //-90;
 
 
 	// roll pitch yaw x y z
@@ -691,6 +692,7 @@ void CRobot::ikine()
 void CRobot::fkine()
 {	
 	float r11, r21, r31, r32, r33;
+
 	r11 = _current_view.at<float>(0, 0);
 	r21 = _current_view.at<float>(1, 0);
 	r31 = _current_view.at<float>(2, 0);
@@ -730,14 +732,25 @@ void CRobot::check_make_positive()
 
 void CRobot::draw_lab6()
 {
-	if (_worldview)
+	if (_worldview) {
 		_virtualcam.detect_aruco(_canvas, _canvas_copy);
+
+		Point3i new_xyz;
+		if (_virtualcam.can_draw_ikine()) {
+			new_xyz = _virtualcam.get_xyz();
+			_icoord[0] = _virtualcam.box.x;
+			_icoord[1] = _virtualcam.box.y;
+			_icoord[2] = _virtualcam.box.z;
+			_icoord[3] = _virtualcam.box.yaw;
+		}
+	}
 
 	_virtualcam.update_settings(_canvas_copy);
 	update_settings(_canvas_copy);
 
 	Mat current_view = extrinsic();
 
+	
 	for (auto x : _lab5_robot) {
 
 		//Change origin
@@ -764,9 +777,9 @@ void CRobot::draw_lab6()
 
 	//Store into member variable
 	_current_view = current_view;
-
+	
 	if (_kin_select)
-		ikine();
+		ikine();		
 	else
 		fkine();
 
@@ -775,11 +788,11 @@ void CRobot::draw_lab6()
 
 	std::vector<Mat> O = createCoord();
 	transformPoints(O, current_view);
-
+	
 	//Draw coordinates if pose is seen
 	if (_virtualcam.get_pose_seen() || _worldview==false)
 		drawCoord(_canvas_copy, O, 5);
-
+		
 
 	cv::imshow(CANVAS_NAME, _canvas_copy);
 

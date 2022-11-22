@@ -81,7 +81,7 @@ void lab6(int cam_id)
 {
    char exit_key = -1;
    CRobot robot(6);
-   //robot.set_worldview();
+   robot.set_worldview();
 
    while (exit_key != 'q') {
       robot.create_lab5();

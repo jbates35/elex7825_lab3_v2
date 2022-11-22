@@ -42,6 +42,17 @@ private:
 	int _cam_setting_pitch;
 	int _cam_setting_yaw;
 
+	struct box_pos
+	{
+		int x;
+		int y;
+		int z;
+		int roll;
+		int pitch;
+		int yaw;
+	};
+
+
 	// Real webcam
 	Mat _cam_real_intrinsic;
 	Mat _cam_real_extrinsic;
@@ -79,19 +90,32 @@ private:
 	int _cam_id;
 	bool pose_seen; // false on initialize, true once pose has been seen
 	bool _worldview;
+	bool _can_detect;
 
 	Point3i rvec_prime;
 	bool update_angle;
+	bool _pose_detected; // For detecting aruco boxes
+	std::vector<bool> _marker_found;
+	std::vector<int> _marker_id;
+	std::vector<cv::Vec3d> _marker_tvec, _marker_rvec;
+
+	cv::Mat extrinsic(int roll = 0, int pitch = 0, int yaw = 0, float x = 0, float y = 0, float z = 0, bool normal = true);
+
+	Point3i new_xyz;
 
 public:
 	void init(Size image_size, int cam_id=0);
-
+	
 	bool save_camparam(string filename, Mat& cam, Mat& dist);
 	bool load_camparam(string filename, Mat& cam, Mat& dist);
+
+	struct box_pos box;
 
 	void createChArUcoBoard();
 	void calibrate_board();
 	void detect_aruco(Mat& im, Mat& im_cpy);
+	void detect_box(Mat& im, Mat& im_cpy);
+
 
 	void transform_to_image(Mat pt3d_mat, Point2f& pt);
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
@@ -102,6 +126,8 @@ public:
 	void update_settings(Mat &im);
 
 	bool get_pose_seen() { return pose_seen; }
+	bool can_draw_ikine() { return _pose_detected;  }
+	Point3i get_xyz() { return new_xyz; }
 
 	void set_lab(int lab);
 
