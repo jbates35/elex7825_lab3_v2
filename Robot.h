@@ -12,6 +12,9 @@ using namespace dnn;
 #define ANIMATE_INCREMENT 5
 #define MAX_ANIMATE_RANGE 200
 
+#define TOTAL_TIME 7
+#define STEP_COUNT 70
+
 #define ARM_LENGTH 0.15 // Length of robot arm (a1, a2)
 #define MAX_ICOORD 325
 #define MIN_ICOORD 50.5
@@ -114,6 +117,20 @@ private:
 	int _istage, _icount;
 	int _istart;
 
+	//////////////////////////////////////
+	// LAB 7
+	vector<float> jtraj(float s0, float sT, float v0=0, float vT=0, int steps=50, float T=TOTAL_TIME);
+	int ctraj();
+	bool _ctraj_on;
+	bool _jtraj_on;
+	vector<int> _jtraj_pos1;
+	vector<int> _jtraj_pos2;
+	int pose_counter;
+	vector<float> jtraj_vec_q1, jtraj_vec_q2, jtraj_vec_q3, jtraj_vec_z;
+	int dir;
+
+	double frame_time_beg, frame_time_end, frame_time, frame_freq;
+	vector<double> frame_time_vec;
   
 public:
 	Mat createHT(Vec3d t, Vec3d r);
@@ -121,7 +138,7 @@ public:
 
 	/////////////////////////////
 	// Lab 3
-
+	  
 	void create_simple_robot();
 	void draw_simple_robot();
 
@@ -141,5 +158,9 @@ public:
 	// Lab 6
 	void ikine();
 	void draw_lab6();
+
+	/////////////////////////
+	// Lab 7
+	void draw_lab7();
 };
 

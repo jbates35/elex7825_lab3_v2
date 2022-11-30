@@ -96,6 +96,26 @@ void CRobot::init()
 	_icount = 0;
 
 	_do_animate_inv = 0;
+
+	_jtraj_on = false;
+	_ctraj_on = false;
+
+	_jtraj_pos1.clear();
+	_jtraj_pos1 = { 0, 0, 0, 0 };
+	_jtraj_pos2.clear();
+	_jtraj_pos2 = { -180, 90, 90, 15 };
+
+
+	for (int i = 0; i < 5; i++) frame_time_vec.push_back(0);
+
+	jtraj_vec_q1 = jtraj(0, -180, 1, 1, STEP_COUNT);
+	jtraj_vec_q2 = jtraj(0, 90, 1, 1, STEP_COUNT);
+	jtraj_vec_q3 = jtraj(0, 90, 1, 1, STEP_COUNT);
+	jtraj_vec_z = jtraj(0, 150, 1, 1, STEP_COUNT);
+
+	pose_counter = 0;
+	dir = 1;
+
 }
 
 void CRobot::update_settings(Mat& im)
@@ -103,7 +123,7 @@ void CRobot::update_settings(Mat& im)
 	Point _setting_window;
 
 	_setting_window.x = im.size().width - 200;
-	cvui::window(im, _setting_window.x, _setting_window.y, 200, 500, "Robot Settings");
+	cvui::window(im, _setting_window.x, _setting_window.y, 200, 600, "Robot Settings");
 
 	_setting_window.x += 5;
 	_setting_window.y += 25;
@@ -140,31 +160,61 @@ void CRobot::update_settings(Mat& im)
 
 			_setting_window.y += 45;
 		}
+		string kin_type = "forward";
+		Scalar kin_color = RED;
+
+		if (_kin_select) {
+			kin_type = "inverse";
+			kin_color = GREEN;
+		}
+
+		circle(im, Point2i(_setting_window.x + 160, _setting_window.y), 8, kin_color, -1);
+
+		_setting_window.y += 20;
+
+		if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "IAnimate")) {
+			_kin_select = true;
+			_do_animate_inv = 1;
+			_istage = 0;
+			_icount = 0;
+		}
+	
+
+		if (cvui::button(im, _setting_window.x + 110, _setting_window.y, 100, 30, kin_type)) {
+			_kin_select = !_kin_select;
+			check_make_positive();
+		}
 	}
 
-	if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "IAnimate")) {
-		_kin_select = true;
-		_do_animate_inv = 1;
-		_istage = 0;
-		_icount = 0;
+
+
+	if (_lab >= 7) {
+		_setting_window.y += 45;
+
+		if (cvui::button(im, _setting_window.x, _setting_window.y, 100, 30, "jtraj")) {
+			_jtraj_on = !_jtraj_on;
+			_ctraj_on = false;
+			dir = 1;
+			pose_counter = 0;
+		}
+
+		if (cvui::button(im, _setting_window.x + 110, _setting_window.y, 100, 30, "ctraj")) {
+			_ctraj_on = !_ctraj_on;
+			_jtraj_on = false;
+		}
+
+		Scalar traj_color = RED;
+		if (_ctraj_on) traj_color = GREEN;
+
+		if (_ctraj_on || _jtraj_on)
+			circle(im, Point2i(_setting_window.x + 100, _setting_window.y + 80), 8, traj_color, -1);
+		else
+			circle(im, Point2i(_setting_window.x + 100, _setting_window.y + 80), 8, Scalar(144, 144, 144), -1);
+
+		_setting_window.y += 35;
 	}
 
-	string kin_type = "forward";
-	Scalar kin_color = RED;
 
-	if (_kin_select) {
-		kin_type = "inverse";
-		kin_color = GREEN;
-	}
-
-	if (cvui::button(im, _setting_window.x + 110, _setting_window.y, 100, 30, kin_type)) {
-		_kin_select = !_kin_select;
-		check_make_positive();
-	}
-
-	_setting_window.y += 35;
-
-	circle(im, Point2i(_setting_window.x + 160, _setting_window.y + 8), 8, kin_color, -1);
 
 	//Animate1
 	if (_do_animate != 0) {
@@ -191,6 +241,7 @@ void CRobot::update_settings(Mat& im)
 			break;
 		default:
 			init();
+			break;
 		}
 
 		if (_do_animate == 5) {
@@ -537,6 +588,9 @@ void CRobot::draw_more_complex_robot()
 
 void CRobot::create_lab5()
 {
+
+	frame_time_beg = cv::getTickCount() / cv::getTickFrequency();
+
 	_lab5_robot.clear();
 	vector<Scalar> colors = { WHITE, RED, GREEN, BLUE };
 
@@ -796,5 +850,184 @@ void CRobot::draw_lab6()
 
 	cv::imshow(CANVAS_NAME, _canvas_copy);
 
+}
+
+
+
+
+/////////////////LAB 7
+//Lab 7
+
+vector<float> CRobot::jtraj(float s0, float sT, float v0, float vT, int steps, float T)
+{
+	//Goal time is 10Hz, i.e. 50 frames.
+	vector<float> pos_vec;
+
+	//Get amount of time per step
+	float time_per_step = T / steps;
+
+	double T5 = T * T * T * T * T;
+	double T4 = T * T * T * T;
+	double T3 = T * T * T;
+	double T2 = T * T;
+
+	//From the notes, coef mat will be calculated from this
+	Mat T_mat = (Mat1f(6, 6) <<
+		0,		0,		0,		0,		0,		1,
+		T5,	T4,	T3,	T2,	T,		1,
+		0,		0,		0,		0,		1,		0,
+		5*T4,	4*T3,	3*T2,	2*T,	1,		0,
+		0,		0,		0,		2,		0,		0,
+		20*T3,12*T2,6*T,	2,		0,		0
+		);
+	
+	//ABCDEF are calculated with this as well
+	Mat traj_mat = (Mat1f(6, 1) <<
+		s0, sT, v0, vT, 0, 0
+		);
+
+	//Calculate mat and store values in array
+	Mat coef_mat = T_mat.inv() * traj_mat;
+	vector<float> coefs;
+
+	for (int i = 0; i < coef_mat.rows; i++) {
+		coefs.push_back(coef_mat.at<float>(i));
+	}
+
+	//With those coefficients, we now need to calculate the time steps
+	//We can use just the position, time_per_step, store to vector and return it
+	vector<double> time_vec;
+	float pos;
+
+	for (int i = 0; i < steps; i++) {
+		
+		//Clear variables we need
+		time_vec.clear();
+		pos = 0;
+
+		//Get current time through iterative process
+		float t = time_per_step * i;
+
+		//Get values to get multiplied by coefs
+		time_vec.push_back(t * t * t * t * t);
+		time_vec.push_back(t * t * t * t);
+		time_vec.push_back(t * t * t);
+		time_vec.push_back(t * t);
+		time_vec.push_back(t);
+		time_vec.push_back(1);
+
+		//Mult coefs by time equation
+		for (int j = 0; j < coefs.size(); j++)
+			pos += coefs[j] * time_vec[j];
+
+		//Push back to position vector
+		pos_vec.push_back(pos);
+	}
+
+	return pos_vec;
+}
+
+int CRobot::ctraj()
+{
+	return 1;
+}
+
+void CRobot::draw_lab7()
+{
+	if (_worldview) {
+		_virtualcam.detect_aruco(_canvas, _canvas_copy);
+
+		Point3i new_xyz;
+		if (_virtualcam.can_draw_ikine()) {
+			new_xyz = _virtualcam.get_xyz();
+			_icoord[0] = _virtualcam.box.x;
+			_icoord[1] = _virtualcam.box.y;
+			_icoord[2] = _virtualcam.box.z;
+			_icoord[3] = _virtualcam.box.yaw;
+		}
+	}
+
+	//JtraJ if selected (move robot joints)
+	if (_jtraj_on) {
+		//Store new values into pose
+		_joint[0] = jtraj_vec_q1[pose_counter];
+		_joint[1] = jtraj_vec_q2[pose_counter];
+		_joint[3] = jtraj_vec_q3[pose_counter];
+		_joint[2] = jtraj_vec_z[pose_counter];
+
+		//increment or decrement counter
+		pose_counter = pose_counter + dir;
+
+		//Change direction of counter when they reach max and min
+		if (pose_counter >= STEP_COUNT - 1)
+			dir = -1;
+		if (pose_counter <= 0)
+			dir = 1;
+	}
+
+	_virtualcam.update_settings(_canvas_copy);
+	update_settings(_canvas_copy);
+
+	Mat current_view = extrinsic();
+
+
+	for (auto x : _lab5_robot) {
+
+		//Change origin
+		current_view = current_view * x.transpose * x.rotate;
+
+		//Transform box
+		transformPoints(x.shape, current_view);
+
+		//Create worldview
+		std::vector<Mat> O = createCoord();
+		transformPoints(O, current_view);
+
+		if (_virtualcam.get_pose_seen() || _worldview == false) {
+			//Draw box + worldview
+			drawCoord(_canvas_copy, O, 5);
+			drawBox(_canvas_copy, x.shape, x.color, 5);
+		}
+	}
+
+	//Draw last worldview (end effector)
+	Mat effector_translate = extrinsic(0, 0, 0, 0.15, 0, 0, false);
+
+	current_view = current_view * effector_translate;
+
+	//Store into member variable
+	_current_view = current_view;
+
+	if (_kin_select)
+		ikine();
+	else
+		fkine();
+
+	//FLIP
+	current_view *= extrinsic(0, 0, 180);
+
+	std::vector<Mat> O = createCoord();
+	transformPoints(O, current_view);
+
+	//Draw coordinates if pose is seen
+	if (_virtualcam.get_pose_seen() || _worldview == false)
+		drawCoord(_canvas_copy, O, 5);
+
+	string frame_string_1 = "Frame time is: " + to_string(frame_time_vec[0]) + "\ts";
+	string frame_string_2 = "Frame frequency is : " + to_string(1/frame_time_vec[0]) + "\tHz";
+
+	putText(_canvas_copy, frame_string_1, cv::Point(300, 40), 0, 0.5, Scalar(100 ,150,0), 2);
+	putText(_canvas_copy, frame_string_2, cv::Point(300, 60), 0, 0.5, Scalar(100, 0, 150), 2);
+
+	cv::imshow(CANVAS_NAME, _canvas_copy);
+
+	//Get frame times, but want an average of a bunch
+	frame_time_end = cv::getTickCount() / cv::getTickFrequency();
+	frame_time_vec.erase(frame_time_vec.begin());
+	frame_time_vec.push_back(frame_time_end - frame_time_beg);
+	double frame_temp = 0;
+	for (auto i : frame_time_vec) frame_temp += i;
+	frame_time = frame_temp / frame_time_vec.size();
+	frame_freq = 1 / frame_time;
 }
 
