@@ -35,6 +35,26 @@ Point3i CCamera::convert_to_angle(Mat rotate)
 	);
 }
 
+
+bool CCamera::markers_found()
+{
+	return box_poses.size()>=2;
+}
+
+int CCamera::marker_count()
+{
+	return box_poses.size();
+}
+
+vector<int> CCamera::get_pose(int curr)
+{
+	if (curr >= _marker_tvec.size())
+		curr = 0;
+
+	return box_poses[curr];
+}
+
+
 cv::Mat CCamera::extrinsic(int roll, int pitch, int yaw, float x, float y, float z, bool normal)
 {	
 	//Calculate angles
@@ -204,51 +224,59 @@ void CCamera::calculate_real_extrinsic()
 
 	if (_can_detect) {	
 		
-		/// Want Marker with respect to Board
-		Mat box_Rod;
-		Mat box_R;
+		//To dump tvec and rvec with variables solved in
+		vector<int> coord_dump;
+		box_poses.clear();
 
-		box_Rod = (Mat1f(3, 1) << (float)_marker_rvec[0][0], (float)_marker_rvec[0][1], (float)_marker_rvec[0][2]);
-
-
-		//Convert box rvec and tvec to a matrix
-		Rodrigues(box_Rod, box_R);
-		Point3i angles = convert_to_angle(box_R);
-		Mat box_T = extrinsic(angles.x, angles.y, angles.z, _marker_tvec[0][0], _marker_tvec[0][1], _marker_tvec[0][2], false);
-
-
-		
-		//New total matrix solve
-		Mat total_box_T = nu_extrinsic_mat.inv() * box_T;
-
-		Mat total_box_R = (Mat1f(3, 3) <<
-			total_box_T.at<float>(0, 0), total_box_T.at<float>(0, 1), total_box_T.at<float>(0, 2),
-			total_box_T.at<float>(1, 0), total_box_T.at<float>(1, 1), total_box_T.at<float>(1, 2),
-			total_box_T.at<float>(2, 0), total_box_T.at<float>(2, 1), total_box_T.at<float>(2, 2)
-			);
-
+		for (int i = 0; i < _marker_tvec.size(); i++) {
 			
-		angles = convert_to_angle(total_box_R);
+			coord_dump.clear();
 
-		//Dump box variables
-		box.x = total_box_T.at<float>(0, 3) * 1000;
-		box.y = total_box_T.at<float>(1, 3) * 1000;
-		box.z = total_box_T.at<float>(2, 3) * 1000;
-		box.roll = angles.x;
-		box.pitch = angles.y;
-		box.yaw = angles.z;	
+			/// Want Marker with respect to Board
+			Mat box_Rod;
+			Mat box_R;
+
+			box_Rod = (Mat1f(3, 1) << (float)_marker_rvec[i][0], (float)_marker_rvec[i][1], (float)_marker_rvec[i][2]);
+
+
+			//Convert box rvec and tvec to a matrix
+			Rodrigues(box_Rod, box_R);
+			Point3i angles = convert_to_angle(box_R);
+			Mat box_T = extrinsic(angles.x, angles.y, angles.z, _marker_tvec[i][0], _marker_tvec[i][1], _marker_tvec[i][2], false);
+
+			//New total matrix solve
+			Mat total_box_T = nu_extrinsic_mat.inv() * box_T;
+			Mat total_box_R = (Mat1f(3, 3) <<
+				total_box_T.at<float>(0, 0), total_box_T.at<float>(0, 1), total_box_T.at<float>(0, 2),
+				total_box_T.at<float>(1, 0), total_box_T.at<float>(1, 1), total_box_T.at<float>(1, 2),
+				total_box_T.at<float>(2, 0), total_box_T.at<float>(2, 1), total_box_T.at<float>(2, 2)
+				);
+			angles = convert_to_angle(total_box_R);
+
+			//Dump box variables
+			box.x = total_box_T.at<float>(0, 3) * 1000;
+			box.y = total_box_T.at<float>(1, 3) * 1000;
+			box.z = total_box_T.at<float>(2, 3) * 1000;
+			box.roll = angles.x;
+			box.pitch = angles.y;
+			box.yaw = angles.z;
+
+			coord_dump.push_back(box.roll);
+			coord_dump.push_back(box.pitch);
+			coord_dump.push_back(box.yaw);
+			coord_dump.push_back(box.x);
+			coord_dump.push_back(box.y);
+			coord_dump.push_back(box.z);
+
+			box_poses.push_back(coord_dump);
+			}
+		}
 			
-			
-	}
-	
 	_trans_factor *= T;
 	 rvec_prime = convert_to_angle(rotation * extrinsic(90));
 	_cam_setting_roll = rvec_prime.x;
 	_cam_setting_pitch = rvec_prime.y;
 	_cam_setting_yaw = rvec_prime.z;
-	
-
-	
 }
 
 bool CCamera::save_camparam(string filename, Mat& cam, Mat& dist)
@@ -671,12 +699,18 @@ void CCamera::update_settings(Mat &im)
 	}
 
 	if (testing) {
-		cv::putText(im, "X = " + to_string(box.x), Point(300, 100), 0, 0.8, Scalar(255, 255, 0));
-		cv::putText(im, "Y = " + to_string(box.y), Point(300, 120), 0, 0.8, Scalar(255, 255, 0));
-		cv::putText(im, "Z = " + to_string(box.z), Point(300, 140), 0, 0.8, Scalar(255, 255, 0));
-		cv::putText(im, "R = " + to_string(box.roll), Point(300, 160), 0, 0.8, Scalar(255, 255, 0));
-		cv::putText(im, "P = " + to_string(box.pitch), Point(300, 180), 0, 0.8, Scalar(255, 255, 0));
-		cv::putText(im, "Ya = " + to_string(box.yaw), Point(300, 200), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "R = ", Point(250, 100), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "P = ", Point(250, 120), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Ya = ", Point(250, 140), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "X = ", Point(250, 160), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Y = ", Point(250, 180), 0, 0.8, Scalar(255, 255, 0));
+		cv::putText(im, "Z = ", Point(250, 200), 0, 0.8, Scalar(255, 255, 0));
+
+		for (int i = 0; i < box_poses.size(); i++) {
+			for (int j = 0; j < box_poses[i].size(); j++) {
+				cv::putText(im, to_string(box_poses[i][j]), Point(350 + i * 100, 100 + j*20), 0, 0.8, Scalar(255, 255, 0));
+			}
+		}
 	}
 }
 

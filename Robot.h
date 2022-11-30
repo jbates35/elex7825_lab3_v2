@@ -12,8 +12,8 @@ using namespace dnn;
 #define ANIMATE_INCREMENT 5
 #define MAX_ANIMATE_RANGE 200
 
-#define TOTAL_TIME 7
-#define STEP_COUNT 70
+#define TOTAL_TIME 3.5
+#define STEP_COUNT 35
 
 #define ARM_LENGTH 0.15 // Length of robot arm (a1, a2)
 #define MAX_ICOORD 325
@@ -127,7 +127,12 @@ private:
 	vector<int> _jtraj_pos2;
 	int pose_counter;
 	vector<float> jtraj_vec_q1, jtraj_vec_q2, jtraj_vec_q3, jtraj_vec_z;
+	vector<float> ctraj_vec_x, ctraj_vec_y, ctraj_vec_z, ctraj_vec_yaw;
+	vector<int> _ctraj_pose_1;
+	vector<int> _ctraj_pose_2;
 	int dir;
+	int ctraj_state;
+
 
 	double frame_time_beg, frame_time_end, frame_time, frame_freq;
 	vector<double> frame_time_vec;

@@ -102,6 +102,7 @@ private:
 	cv::Mat extrinsic(int roll = 0, int pitch = 0, int yaw = 0, float x = 0, float y = 0, float z = 0, bool normal = true);
 
 	Point3i new_xyz;
+	vector<vector<int>> box_poses;
 
 public:
 	void init(Size image_size, int cam_id=0);
@@ -110,6 +111,7 @@ public:
 	bool load_camparam(string filename, Mat& cam, Mat& dist);
 
 	struct box_pos box;
+	vector<box_pos> boxes;
 
 	void createChArUcoBoard();
 	void calibrate_board();
@@ -143,5 +145,10 @@ public:
 	cv::Vec3d get_rvec() { return rvec; }
 	cv::Vec3d get_tvec() { return tvec; }
 	Point3i convert_to_angle(Mat T);
+
+	////LAB7
+	bool markers_found();
+	int marker_count();
+	vector<int> get_pose(int curr);
 };
 

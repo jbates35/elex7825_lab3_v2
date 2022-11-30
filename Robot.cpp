@@ -201,6 +201,8 @@ void CRobot::update_settings(Mat& im)
 		if (cvui::button(im, _setting_window.x + 110, _setting_window.y, 100, 30, "ctraj")) {
 			_ctraj_on = !_ctraj_on;
 			_jtraj_on = false;
+			ctraj_state = -1;
+			pose_counter = 0;
 		}
 
 		Scalar traj_color = RED;
@@ -929,6 +931,23 @@ vector<float> CRobot::jtraj(float s0, float sT, float v0, float vT, int steps, f
 
 int CRobot::ctraj()
 {
+	//Store current pose into starting pos
+	_ctraj_pose_1 = _virtualcam.get_pose(ctraj_state);
+
+	//increment ctraj and reset if it reaches max marker count
+	ctraj_state++;
+	if (ctraj_state >= _virtualcam.marker_count())
+		ctraj_state = 0;
+
+	//Get next pose to compare with to jtraj
+	_ctraj_pose_2 = _virtualcam.get_pose(ctraj_state);
+
+	//Get jtraj of these two markers (rpy,xyz)
+	ctraj_vec_x = jtraj((float)_ctraj_pose_1[3], (float)_ctraj_pose_2[3], 1, 1, STEP_COUNT);
+	ctraj_vec_y = jtraj((float)_ctraj_pose_1[4], (float)_ctraj_pose_2[4], 1, 1, STEP_COUNT);
+	ctraj_vec_z = jtraj((float)_ctraj_pose_1[5], (float)_ctraj_pose_2[5], 1, 1, STEP_COUNT);
+	ctraj_vec_yaw = jtraj((float)_ctraj_pose_1[2], (float)_ctraj_pose_2[2], 1, 1, STEP_COUNT);
+
 	return 1;
 }
 
@@ -963,6 +982,39 @@ void CRobot::draw_lab7()
 			dir = -1;
 		if (pose_counter <= 0)
 			dir = 1;
+
+		fkine();
+	}
+
+	//Ctraj if selected
+	if (_ctraj_on) {
+		if (ctraj_state == -1 && _virtualcam.markers_found()) {
+			//Initiate first two marker pose
+			ctraj_state = 0;
+			ctraj();
+		}
+
+		if (ctraj_state != -1) {
+			//Dump vals into xyz and yaw
+			_icoord[0] = ctraj_vec_x[pose_counter];
+			_icoord[1] = ctraj_vec_y[pose_counter];
+			_icoord[2] = ctraj_vec_z[pose_counter];
+			_icoord[3] = ctraj_vec_yaw[pose_counter];
+
+			pose_counter++;
+
+			//Reached end of step count
+			if (pose_counter >= STEP_COUNT) {
+				pose_counter = 0;
+				//If we have no markers found, don't go into algorithm
+				if (!_virtualcam.markers_found()) {
+					_ctraj_on = false;
+				} else {
+					ctraj();
+				}
+			}
+		}
+		ikine();
 	}
 
 	_virtualcam.update_settings(_canvas_copy);
@@ -997,11 +1049,6 @@ void CRobot::draw_lab7()
 
 	//Store into member variable
 	_current_view = current_view;
-
-	if (_kin_select)
-		ikine();
-	else
-		fkine();
 
 	//FLIP
 	current_view *= extrinsic(0, 0, 180);
