@@ -128,8 +128,7 @@ private:
 	int pose_counter;
 	vector<float> jtraj_vec_q1, jtraj_vec_q2, jtraj_vec_q3, jtraj_vec_z;
 	vector<float> ctraj_vec_x, ctraj_vec_y, ctraj_vec_z, ctraj_vec_yaw;
-	vector<int> _ctraj_pose_1;
-	vector<int> _ctraj_pose_2;
+	vector<vector<int>> _ctraj_pose;
 	int dir;
 	int ctraj_state;
 

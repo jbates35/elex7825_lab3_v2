@@ -5,7 +5,7 @@
 CCamera::CCamera()
 {
 
-	testing = false;
+	testing = true;
 
 	// Initialize with a default camera image size 
 	init(Size(1000, 600));

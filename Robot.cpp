@@ -113,6 +113,8 @@ void CRobot::init()
 	jtraj_vec_q3 = jtraj(0, 90, 1, 1, STEP_COUNT);
 	jtraj_vec_z = jtraj(0, 150, 1, 1, STEP_COUNT);
 
+	_ctraj_pose.clear();
+
 	pose_counter = 0;
 	dir = 1;
 
@@ -931,8 +933,8 @@ vector<float> CRobot::jtraj(float s0, float sT, float v0, float vT, int steps, f
 
 int CRobot::ctraj()
 {
-	//Store current pose into starting pos
-	_ctraj_pose_1 = _virtualcam.get_pose(ctraj_state);
+	//Move current pose into starting pos
+	_ctraj_pose.erase(_ctraj_pose.begin());
 
 	//increment ctraj and reset if it reaches max marker count
 	ctraj_state++;
@@ -940,13 +942,13 @@ int CRobot::ctraj()
 		ctraj_state = 0;
 
 	//Get next pose to compare with to jtraj
-	_ctraj_pose_2 = _virtualcam.get_pose(ctraj_state);
+	_ctraj_pose.push_back(_virtualcam.get_pose(ctraj_state));
 
 	//Get jtraj of these two markers (rpy,xyz)
-	ctraj_vec_x = jtraj((float)_ctraj_pose_1[3], (float)_ctraj_pose_2[3], 1, 1, STEP_COUNT);
-	ctraj_vec_y = jtraj((float)_ctraj_pose_1[4], (float)_ctraj_pose_2[4], 1, 1, STEP_COUNT);
-	ctraj_vec_z = jtraj((float)_ctraj_pose_1[5], (float)_ctraj_pose_2[5], 1, 1, STEP_COUNT);
-	ctraj_vec_yaw = jtraj((float)_ctraj_pose_1[2], (float)_ctraj_pose_2[2], 1, 1, STEP_COUNT);
+	ctraj_vec_x = jtraj((float)_ctraj_pose[0][3], (float)_ctraj_pose[1][3], 1, 1, STEP_COUNT);
+	ctraj_vec_y = jtraj((float)_ctraj_pose[0][4], (float)_ctraj_pose[1][4], 1, 1, STEP_COUNT);
+	ctraj_vec_z = jtraj((float)_ctraj_pose[0][5], (float)_ctraj_pose[1][5], 1, 1, STEP_COUNT);
+	ctraj_vec_yaw = jtraj((float)_ctraj_pose[0][2], (float)_ctraj_pose[1][2], 1, 1, STEP_COUNT);
 
 	return 1;
 }
@@ -989,9 +991,21 @@ void CRobot::draw_lab7()
 	//Ctraj if selected
 	if (_ctraj_on) {
 		if (ctraj_state == -1 && _virtualcam.markers_found()) {
+			_ctraj_pose.clear();
+
 			//Initiate first two marker pose
 			ctraj_state = 0;
-			ctraj();
+			_ctraj_pose.push_back(_virtualcam.get_pose(ctraj_state));
+
+			//increment ctraj and reset if it reaches max marker count
+			ctraj_state++;
+			_ctraj_pose.push_back(_virtualcam.get_pose(ctraj_state));
+
+			//Get jtraj of these two markers (rpy,xyz)
+			ctraj_vec_x = jtraj((float)_ctraj_pose[0][3], (float)_ctraj_pose[1][3], 1, 1, STEP_COUNT);
+			ctraj_vec_y = jtraj((float)_ctraj_pose[0][4], (float)_ctraj_pose[1][4], 1, 1, STEP_COUNT);
+			ctraj_vec_z = jtraj((float)_ctraj_pose[0][5], (float)_ctraj_pose[1][5], 1, 1, STEP_COUNT);
+			ctraj_vec_yaw = jtraj((float)_ctraj_pose[0][2], (float)_ctraj_pose[1][2], 1, 1, STEP_COUNT);
 		}
 
 		if (ctraj_state != -1) {
